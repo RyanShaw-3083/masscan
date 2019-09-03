@@ -16,35 +16,33 @@ struct TemplateSet;
 struct Banner1;
 
 /**
- * This is the "operationg" to be performed by masscan, which is almost always
- * to "scan" the network. However, there are some lesser operations to do
- * instead, like run a "regression self test", or "debug", or something else
- * instead of scanning. We parse the command-line in order to figure out the
- * proper operation
+ * 这是masscan将要执行的“操作”，几乎总是这样
+ * “扫描”网络。然而，还有一些较小的操作要做
+ * 相反，像运行一个“自测”，或“调试”，或其他东西而不是扫描。
+ * 我们解析命令行，以便找出正确操作
  */
 enum Operation {
-    Operation_Default = 0,          /* nothing specified, so print usage */
-    Operation_List_Adapters = 1,    /* --listif */
-    Operation_Selftest = 2,         /* --selftest or --regress */
-    Operation_Scan = 3,         /* this is what you expect */
-    Operation_DebugIF = 4,          /* --debug if */
-    Operation_ListScan = 5,         /* -sL */
-    Operation_ReadScan = 6,         /* --readscan <binary-output> */
-    Operation_ReadRange = 7,        /* --readrange */
-    Operation_Benchmark = 8,        /* --benchmark */
+    Operation_Default = 0,          /* 未定义，打印帮助 */
+    Operation_List_Adapters = 1,    /* --listif */                      // 列出网卡列表
+    Operation_Selftest = 2,         /* --selftest or --regress */       // 自测或回归测试
+    Operation_Scan = 3,         /* 这是你期待的 */                        // 开始扫描
+    Operation_DebugIF = 4,          /* --debug if */                    // 接口调试
+    Operation_ListScan = 5,         /* -sL */                           // Nmap参数格式，顺序扫描
+    Operation_ReadScan = 6,         /* --readscan <binary-output> */    // 读取二进制文件获取扫描信息
+    Operation_ReadRange = 7,        /* --readrange */                   // 读取IP范围信息
+    Operation_Benchmark = 8,        /* --benchmark */                   // 评估扫描性能
 };
 
 /**
- * The format of the output. If nothing is specified, then the default will
- * be "--interactive", meaning that we'll print to the command-line live as
- * results come in. Only one output format can be specified, except that
- * "--interactive" can be specified alongside any of the other ones.
+ * 输出的格式。如果没有指定任何内容，则默认值将指定
+ * 为“——interactive”，这意味着我们将实时打印结果出来到命令行。
+ * 只能指定一种输出格式，除此之外“——interactive”可以与其他选项一起指定。
  */
 enum OutputFormat {
     Output_Default      = 0x0000,
-    Output_Interactive  = 0x0001,   /* --interactive, print to cmdline */
+    Output_Interactive  = 0x0001,   /* --interactive, (交互模式，打印到命令行) */
     Output_List         = 0x0002,
-    Output_Binary       = 0x0004,   /* -oB, "binary", the primary format */
+    Output_Binary       = 0x0004,   /* -oB, "binary", 基本格式（二进制格式） */
     Output_XML          = 0x0008,   /* -oX, "xml" */
     Output_JSON         = 0x0010,   /* -oJ, "json" */
     Output_NDJSON       = 0x0011,   /* -oD, "ndjson" */
@@ -55,26 +53,25 @@ enum OutputFormat {
     Output_Unicornscan  = 0x0200,   /* -oU, "unicornscan" */
     Output_None         = 0x0400,
     Output_Certs        = 0x0800,
-    Output_All          = 0xFFBF,   /* not supported */
+    Output_All          = 0xFFBF,   /* not supported */  //不支持的输出格式
 };
 
 
 /**
- * Holds the list of TCP "hello" payloads, specified with the "--hello-file"
- * or "--hello-string" options
+ * 保存TCP“hello”有效负载列表，使用“——hello-file”指定或“——hello-string”选项
  */
 struct TcpCfgPayloads
 {
-    /** The "hello" data in base64 format. This is either the base64 string
-     * specified in the cmdline/cfgfile with "--hello-string", or the 
-     * contents of a file specified with "--hello-file" that we've converted
-     * into base64 */
+    /** “hello”数据的base64格式。这要么是base64字符串
+     * 在cmdline/cfgfile中指定“——hello-string”，或
+     * 文件的内容指定为“——hello-file”，我们已经转换为base64。
+     * */
     char *payload_base64;
     
-    /** The TCP port that this hello belongs to */
+    /** hello所属的TCP端口 */
     unsigned port;
     
-    /** These configuration options are stored as a linked-list */
+    /** 这些配置选项存储为链表 */
     struct TcpCfgPayloads *next;
 };
 
@@ -82,17 +79,16 @@ struct TcpCfgPayloads
 
 
 /**
- * This is the master MASSCAN configuration structure. It is created on startup
- * by reading the command-line and parsing configuration files.
- *
- * Once read in at the start, this structure doesn't change. The transmit
- * and receive threads have only a "const" pointer to this structure.
+ * 这是主MASSCAN配置结构。它是在启动时创建的
+ * 读取命令行并解析配置文件。
+ * 
+ * 一旦开始读取，这个结构就不会改变。传输和接收线程只有一个指向这个结构的“const”指针。
  */
 struct Masscan
 {
     /**
-     * What this progrma is doing, which is normally "Operation_Scan", but
-     * which can be other things, like "Operation_SelfTest"
+     * 这个程序正在做什么，通常是“Operation_Scan”，但是
+     * 也可以是其他东西，比如“Operation_SelfTest”
      */
     enum Operation op;
     
@@ -100,27 +96,25 @@ struct Masscan
         unsigned tcp:1;
         unsigned udp:1;     /* -sU */
         unsigned sctp:1;
-        unsigned ping:1;    /* --ping, ICMP echo */
-        unsigned arp:1;     /* --arp, local ARP scan */
+        unsigned ping:1;    /* --ping, ICMP 探测 */
+        unsigned arp:1;     /* --arp, 本地 ARP 扫描 */
         unsigned oproto:1;  /* -sO */
     } scan_type;
     
     /**
-     * After scan type has been configured, add these ports
+     * 配置扫描类型之后，添加这些端口
      */
     unsigned top_ports;
     
     /**
-     * Temporary file to echo parameters to, used for saving configuration
-     * to a file
+     * 将参数回送到的临时文件，用于将配置保存到文件中
      */
     FILE *echo;
     unsigned echo_all;
 
     /**
-     * One or more network adapters that we'll use for scanning. Each adapter
-     * should have a separate set of IP source addresses, except in the case
-     * of PF_RING dnaX:Y adapters.
+     * 我们将使用一个或多个网络适配器进行扫描。
+     * 每个适配器应该有一组单独的IP源地址，PF_RING dnaX:Y适配器除外。
      */
     struct {
         char ifname[256];
@@ -129,42 +123,40 @@ struct Masscan
         unsigned char my_mac[6];
         unsigned char router_mac[6];
         unsigned router_ip;
-        int link_type; /* libpcap definitions */
-        unsigned char my_mac_count; /*is there a MAC address? */
+        int link_type; /* 根据 libpcap 定义的 */
+        unsigned char my_mac_count; /*是否有MAC地址? */
         unsigned vlan_id;
         unsigned is_vlan:1;
     } nic[8];
     unsigned nic_count;
 
     /**
-     * The target ranges of IPv4 addresses that are included in the scan.
-     * The user can specify anything here, and we'll resolve all overlaps
-     * and such, and sort the target ranges.
+     * 扫描中包含的IPv4地址的目标范围。
+     * 用户可以在这里指定任何内容，我们将解决所有重叠
+     * 诸如此类，并对目标范围进行排序。
      */
     struct RangeList targets;
     struct Range6List targets_ipv6;
 
     /**
-     * The ports we are scanning for. The user can specify repeated ports
-     * and overlapping ranges, but we'll deduplicate them, scanning ports
-     * only once.
-     * NOTE: TCP ports are stored 0-64k, but UDP ports are stored in the
-     * range 64k-128k, thus, allowing us to scan both at the same time.
+     * 我们正在扫描的端口。用户可以指定重复端口
+     * 和重叠的范围，但我们会去复制他们，扫描端口只有一次。
+     * 注意:TCP端口存储0-64k，而UDP端口存储在
+     * 范围64k-128k，因此，允许我们同时扫描两者。
      */
     struct RangeList ports;
     
     /**
-     * Only output these types of banners
+     * 只输出这些类型的Banners
      */
     struct RangeList banner_types;
 
     /**
-     * IPv4 addresses/ranges that are to be exluded from the scan. This takes
-     * precedence over any 'include' statement. What happens is this: after
-     * all the configuration has been read, we then apply the exclude/blacklist
-     * on top of the target/whitelist, leaving only a target/whitelist left.
-     * Thus, during the scan, we only choose from the target/whitelist and
-     * don't consult the exclude/blacklist.
+     * 要从扫描中排除IPv4地址/范围。
+     * 这需要优先于任何“包含”语句。
+     * 事情是这样的:
+     *  之后所有配置已读取，然后应用排除/黑名单在目标/白名单的顶部，只留下一个目标/白名单。
+     *  因此，在扫描期间，我们只选择目标/白名单和不要查阅排除/黑名单。
      */
     struct RangeList exclude_ip;
     struct RangeList exclude_port;
@@ -172,15 +164,13 @@ struct Masscan
 
 
     /**
-     * Maximum rate, in packets-per-second (--rate parameter). This can be
-     * a fraction of a packet-per-second, or be as high as 30000000.0 (or
-     * more actually, but I've only tested to 30megapps).
+     * 最大速率，单位为包每秒(—速率参数)。这可以每秒数据包的一小部分，或高达30000000.0
+     * (或实际上更多，但我只测试了3000万个应用程序)。
      */
     double max_rate;
 
     /**
-     * Number of retries (--retries or --max-retries parameter). Retries
-     * happen a few seconds apart.
+     * 重试次数(—重试或—max-重试参数)。重试间隔几秒钟。
      */
     unsigned retries;
 
@@ -189,31 +179,30 @@ struct Masscan
     unsigned is_sendq:1;        /* --sendq */
     unsigned is_banners:1;      /* --banners */
     unsigned is_offline:1;      /* --offline */
-    unsigned is_noreset:1;      /* --noreset, don't transmit RST */
-    unsigned is_gmt:1;          /* --gmt, all times in GMT */
+    unsigned is_noreset:1;      /* --noreset, 不发送 RST */
+    unsigned is_gmt:1;          /* --gmt, 所有时间按 GMT 时区 */
     unsigned is_capture_cert:1; /* --capture cert */
     unsigned is_capture_html:1; /* --capture html */
     unsigned is_capture_heartbleed:1; /* --capture heartbleed */
-    unsigned is_capture_ticketbleed:1; /* --capture ticket */
-    unsigned is_test_csv:1;     /* (temporary testing feature) */
+    unsigned is_capture_ticketbleed:1; /* --capture ticket （ticketbleed） */
+    unsigned is_test_csv:1;     /* (临时测试使用) */
     unsigned is_infinite:1;     /* -infinite */
     unsigned is_readscan:1;     /* --readscan, Operation_Readscan */
-    unsigned is_heartbleed:1;   /* --heartbleed, scan for this vuln */
-    unsigned is_ticketbleed:1;  /* --ticketbleed, scan for this vuln */
-    unsigned is_poodle_sslv3:1; /* --vuln poodle, scan for this vuln */
-    unsigned is_hello_ssl:1;    /* --ssl, use SSL HELLO on all ports */
-    unsigned is_hello_smbv1:1;  /* --smbv1, use SMBv1 hello, instead of v1/v2 hello */
-    unsigned is_scripting:1;    /* whether scripting is needed */
+    unsigned is_heartbleed:1;   /* --heartbleed, 漏洞扫描 */
+    unsigned is_ticketbleed:1;  /* --ticketbleed, 漏洞扫描 */
+    unsigned is_poodle_sslv3:1; /* --vuln poodle, 漏洞扫描 */
+    unsigned is_hello_ssl:1;    /* --ssl, 发SSL HELLO到被扫描端口 */
+    unsigned is_hello_smbv1:1;  /* --smbv1,发SMBv1 hello,不是v1/v2 hello（非兼容模式） */
+    unsigned is_scripting:1;    /* 是否需要脚本 */
         
     /**
-     * Wait forever for responses, instead of the default 10 seconds
+     * 永远等待响应，而不是默认的10秒
      */
     unsigned wait;
 
     /**
      * --resume
-     * This structure contains options for pausing the scan (by exiting the
-     * program) and restarting it later.
+     * 此结构包含暂停扫描的选项(通过退出程序)，稍后重新启动。
      */
     struct {
         /** --resume-index */
@@ -222,7 +211,7 @@ struct Masscan
         /** --resume-count */
         uint64_t count;
         
-        /** Derives the --resume-index from the target ip:port */
+        /** 派生 --resume-index 从目标的 ip:port */
         struct {
             unsigned ip;
             unsigned port;
@@ -231,11 +220,11 @@ struct Masscan
 
     /**
      * --shard n/m
-     * This is used for distributin a scan acros multiple "shards". Every
-     * shard in the scan must know the total number of shards, and must also
-     * know which of those shards is it's identity. Thus, shard 1/5 scans
-     * a different range than 2/5. These numbers start at 1, so it's
-     * 1/3 (#1 out of three), 2/3, and 3/3 (but not 0/3).
+     * 这是用来分配扫描跨多个“分配”。每一个
+     * 扫描中的碎片必须知道碎片的总数，而且还必须知道
+     * 知道哪些碎片是它的身份。因此，碎片1/5扫描
+     * 与2/5的范围不同。这些数从1开始，所以是
+     * 1/3(三分之一)、2/3和3/3(但不是0/3)。
      */
     struct {
         unsigned one;
@@ -243,48 +232,45 @@ struct Masscan
     } shard;
 
     /**
-     * The packet template set we are current using. We store a binary template
-     * for TCP, UDP, SCTP, ICMP, and so on. All the scans using that protocol
-     * are then scanned using that basic template. IP and TCP options can be
-     * added to the basic template without affecting any other component
-     * of the system.
+     * 我们当前使用的包模板集。
+     * 我们存储一个二进制模板用于TCP、UDP、SCTP、ICMP等。
+     * 所有使用该协议的扫描,然后使用基本模板。
+     * IP和TCP选项可以是添加到基本模板的，因此不影响任何其他系统的组件。
      */
     struct TemplateSet *pkt_template;
 
     /**
-     * A random seed for randomization if zero, otherwise we'll use
-     * the configured seed for repeatable tests.
+     * 可重复配置的随机化种子。
      */
     uint64_t seed;
     
     /**
-     * This block configures what we do for the output files
+     * 此块配置我们为输出文件所做的操作
      */
     struct OutputStuff {
         
         /**
          * --output-format
-         * Examples are "xml", "binary", "json", "ndjson", "grepable", and so on.
+         * 例如 "xml", "binary", "json", "ndjson", "grepable"等等.
          */
         enum OutputFormat format;
         
         /**
          * --output-filename
-         * The name of the file where we are storing scan results.
-         * Note: the filename "-" means that we should send the file to
-         * <stdout> rather than to a file.
+         * 存放扫描结果的文件的名称。
+         * 注意:文件名“-”表示我们应该将文件发送到标准输出而不是一个文件。
          */
         char filename[256];
         
         /**
-         * A feature of the XML output where we can insert an optional 
-         * stylesheet into the file for better rendering on web browsers
+         * XML输出的一个特性，我们可以在其中插入一个可选的
+         * 将样式表放入文件中，以便在web浏览器上更好地呈现
          */
         char stylesheet[256];
 
         /**
          * --append
-         * We should append to the output file rather than overwriting it.
+         * 我们应该附加到输出文件中，而不是覆盖它。
          */
         unsigned is_append:1;
         
@@ -292,71 +278,69 @@ struct Masscan
          * --open
          * --open-only
          * --show open
-         * Whether to show open ports
+         * 是否显示打开的端口
          */
         unsigned is_show_open:1;
         
         /**
          * --show closed
-         * Whether to show closed ports (i.e. RSTs)
+         * 是否显示关闭的端口 (i.e. RSTs)
          */
         unsigned is_show_closed:1;
         
         /**
          * --show host
-         * Whether to show host messages other than closed ports
+         * 是否显示主机消息而不是关闭的端口
          */
         unsigned is_show_host:1;
         
         /**
-         * print reason port is open, which is redundant for us 
+         * 打印端口是打开的原因，这对我们来说是多余的
          */
         unsigned is_reason:1;
     
         /**
          * --interactive
-         * Print to command-line while also writing to output file. This isn't
-         * needed if the output format is already 'interactive' (the default),
-         * but only if the default output format is anything else, and the
-         * user also wants interactivity.
+         * 打印到命令行，同时写入输出文件。
+         * 如果输出格式已经是“交互式的”(默认)，
+         * 但仅当默认输出格式为其他格式时，且用户还需要交互性。
          */
         unsigned is_interactive:1;
         
         /**
-        * Print state updates
+        * 打印状态更新
         */
         unsigned is_status_updates:1;
 
         struct {
             /**
-             * When we should rotate output into the target directory
+             * 按多少偏移分割输出。
              */
             unsigned timeout;
             
             /**
-             * When doing "--rotate daily", the rotation is done at GMT. In 
-             * orderto fix this, add an offset.
+             * 我们时间分割时，按GMT时区，因此需要配置时区偏移。
              */
             unsigned offset;
             
             /**
-             * Instead of rotating by timeout, we can rotate by filesize 
+             * 除了按时间分割，我们可以按文件大小分割 
              */
             uint64_t filesize;
             
             /**
-             * The directory to which we store rotated files
+             * 存放自动分割文件的路径
              */
             char directory[256];
         } rotate;
     } output;
 
     struct {
-        unsigned data_length; /* number of bytes to randomly append */
-        unsigned ttl; /* starting IP TTL field */
-        unsigned badsum; /* bad TCP/UDP/SCTP checksum */
+        unsigned data_length; /* 随机化数据长度 */
+        unsigned ttl; /* 最初的 IP TTL 值 */
+        unsigned badsum; /* 错误的 TCP/UDP/SCTP 校验和 */
 
-        unsigned packet_trace:1; /* print transmit messages */
+        unsigned packet_trace:1; /* 打印数据包信息 */
         
         char datadir[256];
     } nmap;
@@ -382,11 +366,7 @@ struct Masscan
     unsigned http_user_agent_length;
     unsigned tcp_connection_timeout;
     
-    /** Number of seconds to wait for a 'hello' from the server before
-     * giving up and sending a 'hello' from the client. Should be a small
-     * value when doing scans that expect client-side hellos, like HTTP or
-     * SSL, but should be a longer value when doing scans that expect server
-     * hellos, such as FTP or VNC */
+    /** HELLO发送前的预期等待时间，对于一些协议如FTP或VNC，发送等待应更长些 */
     unsigned tcp_hello_timeout;
 
     struct {
@@ -410,7 +390,7 @@ struct Masscan
     unsigned min_packet_size;
 
     /**
-     * Number of rounds for randomization
+     * BlackRock随机轮数
      * --blackrock-rounds
      */
     unsigned blackrock_rounds;
@@ -419,17 +399,17 @@ struct Masscan
      * --script <name>
      */
     struct {
-        /* The name (filename) of the script to run */
+        /* 脚本名称 */
         char *name;
         
-        /* The script VM */
+        /* 脚本解释器 */
         struct lua_State *L;
     } scripting;
 
     
     /**
      * --vuln <name>
-     * The name of a vuln to check, like "poodle"
+     * 要检查漏洞的名称，比如“poodle”
      */
     const char *vuln_name;
 
@@ -444,7 +424,7 @@ void masscan_save_state(struct Masscan *masscan);
 void main_listscan(struct Masscan *masscan);
 
 /**
- * Load databases, such as:
+ * 加载数据库, 例如:
  *  - nmap-payloads
  *  - nmap-service-probes
  *  - pcap-payloads
@@ -452,13 +432,12 @@ void main_listscan(struct Masscan *masscan);
 void masscan_load_database_files(struct Masscan *masscan);
 
 /**
- * Pre-scan the command-line looking for options that may affect how
- * previous options are handled. This is a bit of a kludge, really.
+ * 预先扫描命令行，寻找可能影响前面的选项处理方式的选项。这是一个有点拼凑，真的.
  */
 int masscan_conf_contains(const char *x, int argc, char **argv);
 
 /**
- * Called to set a <name=value> pair.
+ *读取选项集合 <name=value> 键值对.
  */
 void
 masscan_set_parameter(struct Masscan *masscan,

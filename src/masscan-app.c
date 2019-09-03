@@ -2,8 +2,7 @@
 #include "string_s.h"
 
 /******************************************************************************
- * When outputing results, we call this function to print out the type of 
- * banner that we've collected
+ * 当输出结果时，我们调用这个函数来打印我们收集的banners的类型
  ******************************************************************************/
 const char *
 masscan_app_to_string(enum ApplicationProtocol proto)

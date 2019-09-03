@@ -2,8 +2,8 @@
 #define MASSCAN_APP_H
 
 /*
- * WARNING: these constants are used in files, so don't change the values.
- * Add new ones onto the end
+ * 警告:这些常量用于文件中，所以不要更改值。
+ * 在末尾添加新的
  */
 enum ApplicationProtocol {
     PROTO_NONE,
@@ -13,7 +13,7 @@ enum ApplicationProtocol {
     PROTO_HTTP,
     PROTO_FTP,
     PROTO_DNS_VERSIONBIND,
-    PROTO_SNMP,             /* simple network management protocol, udp/161 */
+    PROTO_SNMP,             /* 简单网络控制协议（SNMP）, udp/161 */
     PROTO_NBTSTAT,          /* netbios, udp/137 */
     PROTO_SSL3,
     PROTO_SMB,              /* SMB tcp/139 and tcp/445 */
@@ -24,7 +24,7 @@ enum ApplicationProtocol {
     PROTO_X509_CERT,
     PROTO_HTML_TITLE,
     PROTO_HTML_FULL,
-    PROTO_NTP,              /* network time protocol, udp/123 */
+    PROTO_NTP,              /* 网络时间协议（NTP）, udp/123 */
     PROTO_VULN,
     PROTO_HEARTBLEED,
     PROTO_TICKETBLEED,
@@ -33,11 +33,11 @@ enum ApplicationProtocol {
     PROTO_MEMCACHED,
     PROTO_SCRIPTING,
     PROTO_VERSIONING,
-    PROTO_COAP,         /* constrained app proto, udp/5683, RFC7252 */
+    PROTO_COAP,         /* 受限应用协议（CoAP）, udp/5683, RFC7252 */
     PROTO_TELNET,
-    PROTO_RDP,          /* Microsoft Remote Desktop Protocol tcp/3389 */
+    PROTO_RDP,          /* 微软远程桌面（RDP） tcp/3389 */
     
-    PROTO_end_of_list /* must be last one */
+    PROTO_end_of_list /* 列表末尾，必须是这个元素 */
 };
 
 const char *
