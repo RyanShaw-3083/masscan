@@ -30,8 +30,7 @@ static void
 cert_out_status(struct Output *out, FILE *fp, time_t timestamp, int status,
                 unsigned ip, unsigned ip_proto, unsigned port, unsigned reason, unsigned ttl)
 {
-    /* certificates only come with banner info, so there is no port info
-     * to report */
+    /* SSL证书信息随着banner的获取而接收，因此没有端口信息在此处 */
     UNUSEDPARM(out);
     UNUSEDPARM(fp);
     UNUSEDPARM(timestamp);

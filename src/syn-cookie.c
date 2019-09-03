@@ -10,9 +10,9 @@
 #endif
 
 /***************************************************************************
- * Go gather some entropy (aka. randmoness) to seed hashing with.
- *
- * NOTE: Mostly it's here to amuse cryptographers with its lulz.
+ * 去收集一些熵(又名熵)。哈希种子。
+ * 
+ * 注意:它主要是用来逗密码专家开心的。
  ***************************************************************************/
 uint64_t
 get_entropy(void)

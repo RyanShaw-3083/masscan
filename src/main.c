@@ -1,8 +1,21 @@
-// 其实我只想添加一个新的协议探测报文到 MASSCAN 内，甚至类似实现“应用层单包探测”。
-//      实际过程中发现masscan不能很好地获取banners以及端口开放情况。
+// 其实我只想添加一个新的探测报文到 MASSCAN 内，甚至类似实现“应用层单包探测”。
+//      实际过程中发现masscan不能很好地获取banners以及端口开放情况。（是我的使用场景问题，或者姿势不对。）
 //      也许读完整个代码，我会发现我根本不需要这么做。
 //      能解决C10M问题的大佬，写出的东西一定是值得学习的。
-//      DPDK也用了类似RTE_RING结构？
+//      DPDK也用了类似RTE_RING结构？ —— 是的。。。MASSCAN使用DPDK的RTE源码，并绕过内核Socket加速网络IO。
+
+// Usage    
+// 问题编号  注释内容
+//  Q0      MASSCAN扫描任务组织、状态管理、数据结构等
+//  Q1      收发线程关系，数据包缓冲及发送队列
+//  Q2      协议交互与解析（Stateless IP ICMP）
+//  Q3      协议交互与解析（Stateful TCP）
+//  Q4      协议交互与解析（Stateless TCP）
+//  Q5      Banner获取相关及扩展
+//  Q6      新的输出格式定义
+// 
+// 例如： 对应感兴趣问题，可全局搜索对应字符串`//-Q1-`
+//       //-Q1-MASSCAN新建收发线程对，线程访问指针存放在该结构体`struct MASSCAN`内。
 
 /*
 
@@ -43,7 +56,7 @@
 #include "rte-ring.h"           /* 生产者/消费者模型的环形缓冲队列 */
 #include "rawsock-pcapfile.h"   /* 将原始数据包保存为PCAP文件 */
 #include "stub-pcap.h"          /* 动态加载libpcap库 */
-#include "smack.h"              /* Aho-corasick state-machine pattern-matcher */
+#include "smack.h"              /* Aho-corasick 搜索算法的状态机匹配 */
 #include "pixie-timer.h"        /* 可移植的时间库函数 */
 #include "pixie-threads.h"      /* 可移植的线程库函数 */
 #include "templ-payloads.h"     /* UDP数据报文 */
@@ -52,7 +65,7 @@
 #include "proto-coap.h"         /* CoAP协议自测 */
 #include "templ-port.h"
 #include "in-binary.h"          /* 转换二进制数据为 XML/JSON 格式 */
-#include "main-globals.h"       /* 程序中所有全局变量 */
+#include "main-globals.h"       /* 程序中所有全局变量 */  //-Q0-收发状态标识 @ Ln104
 #include "proto-zeroaccess.h"
 #include "siphash24.h"
 #include "proto-x509.h"

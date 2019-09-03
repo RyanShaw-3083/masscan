@@ -1,7 +1,7 @@
 /* Copyright: (c) 2009-2010 by Robert David Graham */
 /****************************************************************************
 
-        PREPROCESS PACKETS
+        数据包预处理
 
   This function parses the entire TCP/IP stack looking for IP addresses and
   ports. The intent is that this is the minimal parsing necessary to find

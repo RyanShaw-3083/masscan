@@ -64,8 +64,7 @@ print_port_list(const struct RangeList *ports, int type, FILE *fp)
 extern const char *debug_recv_status;
 
 /****************************************************************************
- * This function doesn't really "open" the file. Instead, the purpose of
- * this function is to initialize the file by printing header information.
+ * 这个函数并不能真正“打开”文件。相反，这个函数的目的是通过打印头信息来初始化文件。
  ****************************************************************************/
 static void
 grepable_out_open(struct Output *out, FILE *fp)
@@ -109,9 +108,8 @@ grepable_out_open(struct Output *out, FILE *fp)
 }
 
 /****************************************************************************
- * This function doesn't really "close" the file. Instead, it's purpose
- * is to print trailing information to the file. This is pretty much only
- * a concern for XML files that need stuff appeneded to the end.
+ * 这个函数并没有真正“关闭”文件。相反，它的目的是将跟踪信息打印到文件中。
+ * 这只是需要在末尾添加内容的XML文件所关心的问题。
  ****************************************************************************/
 static void
 grepable_out_close(struct Output *out, FILE *fp)
@@ -133,8 +131,7 @@ grepable_out_close(struct Output *out, FILE *fp)
 }
 
 /****************************************************************************
- * Prints out the status of a port, which is almost always just "open"
- * or "closed".
+ * 打印端口的状态，端口几乎总是“打开”或“关闭”。
  ****************************************************************************/
 static void
 grepable_out_status(struct Output *out, FILE *fp, time_t timestamp,
@@ -173,10 +170,8 @@ grepable_out_status(struct Output *out, FILE *fp, time_t timestamp,
 }
 
 /****************************************************************************
- * Prints out "banner" information for a port. This is done when there is
- * a protocol defined for a port, and we do some interaction to find out
- * more information about which protocol is running on a port, it's version,
- * and other useful information.
+ * 为端口打印“banner”信息。这是在有为端口定义的协议，我们做一些交互来找出
+ * 关于哪个协议在端口上运行的更多信息，它的版本，及其他有用资料。
  ****************************************************************************/
 static void
 grepable_out_banner(struct Output *out, FILE *fp, time_t timestamp,
@@ -210,8 +205,8 @@ grepable_out_banner(struct Output *out, FILE *fp, time_t timestamp,
 
 
 /****************************************************************************
- * This is the only structure exposed to the rest of the system. Everything
- * else in the file is defined 'static' or 'private'.
+ * 这是向系统其余部分公开的唯一结构。一切
+ * 文件中的else被定义为“静态”或“私有”。
  ****************************************************************************/
 const struct OutputType grepable_output = {
     "grepable",

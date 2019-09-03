@@ -35,7 +35,7 @@ struct PreprocessedInfo {
     unsigned ip_ttl;
     const unsigned char *ip_src;
     const unsigned char *ip_dst;
-    unsigned transport_offset;  /* 34 for normal Ethernet */
+    unsigned transport_offset;  /* 34 字节对于以太网报文 */
     unsigned transport_length;
     unsigned port_src;
     unsigned port_dst;
