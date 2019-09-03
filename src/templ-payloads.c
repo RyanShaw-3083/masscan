@@ -1,24 +1,23 @@
 /*
-    Reads in UDP payload templates.
+读取UDP有效负载模板。
+//-Q0-所以Payload选项只适用于UDP咯？还有oproto（其他协议什么的）
+支持两种格式。
 
-    This supports two formats. The first format is the "nmap-payloads" file
-    included with the nmap port scanner.
+第一种格式是“nmap-有效载荷”文件包含在nmap端口扫描器中。
 
-    The second is the "libpcap" format that reads in real packets,
-    extracting just the payloads, associated them with the destination
-    UDP port.
-
+第二种是“libpcap”格式，它读取真实的数据包，只提取有效负载，并将它们与目标UDP端口关联起来。
  */
 #include "templ-payloads.h"
 #include "templ-port.h"
-#include "rawsock-pcapfile.h"   /* for reading payloads from pcap files */
-#include "proto-preprocess.h"   /* parse packets */
-#include "ranges.h"             /* for parsing IP addresses */
+#include "rawsock-pcapfile.h"   /* 从pcap读取payload */
+#include "proto-preprocess.h"   /* 解析数据包 */
+#include "ranges.h"             /* 解析IP范围 */
 #include "logger.h"
-#include "proto-zeroaccess.h"   /* botnet p2p protocol */
+#include "proto-zeroaccess.h"   /* zeroaccess 僵尸网络协议 */
 #include "proto-snmp.h"
 #include "proto-memcached.h"
-#include "proto-coap.h"         /* constrained app proto for IoT udp/5683*/
+#include "proto-coap.h"         /* CoAP协议在 udp/5683 */ 
+//大佬09年就着眼IoT，而那时的我还是个沉迷于路由交换的孩子。。。
 #include "proto-ntp.h"
 #include "proto-dns.h"
 #include "util-malloc.h"
@@ -30,7 +29,7 @@
 
 struct PayloadUDP_Item {
     unsigned port;
-    unsigned source_port; /* not used yet */
+    unsigned source_port; /* 未启用 */
     unsigned length;
     unsigned xsum;
     unsigned rarity;
@@ -55,14 +54,14 @@ struct PayloadsUDP {
 
 
 struct PayloadUDP_Default hard_coded_oproto_payloads[] = {
-    /* ECHO protocol - echoes back whatever we send */
+    /* ECHO探测协议，发什么回复什么 */
     {47, 65536, 4, 0, 0, "\0\0\0\0"},
     {0,0,0,0,0}
 };
 
 
 struct PayloadUDP_Default hard_coded_udp_payloads[] = {
-    /* ECHO protocol - echoes back whatever we send */
+    /* ECHO探测协议，发什么回复什么 */
     {7, 65536, 12, 0, 0, "masscan-test 0x00000000"},
 
     /* QOTD - quote of the day (amplifier) */
@@ -174,9 +173,7 @@ struct PayloadUDP_Default hard_coded_udp_payloads[] = {
 
 
 /***************************************************************************
- * Calculate the partial checksum of the payload. This allows us to simply
- * add this to the checksum when transmitting instead of recalculating
- * everything.
+*计算Payload部分校验和。这允许我们简单地在传输时将其添加到校验和中，而不是重新计算一切。
  ***************************************************************************/
 static unsigned
 partial_checksum(const unsigned char *px, size_t icmp_length)
@@ -188,16 +185,16 @@ partial_checksum(const unsigned char *px, size_t icmp_length)
         xsum += px[i]<<8 | px[i + 1];
     }
 
-    xsum -= (icmp_length & 1) * px[i - 1]; /* yea I know going off end of packet is bad so sue me */
+    xsum -= (icmp_length & 1) * px[i - 1]; /* 是的，我知道最后的包是错的，有胆来干我 */
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
 
     return (unsigned)xsum;
-}
+}  //-Q0-数据包数据checksum可能存在特殊的计算方式，需要做匹配或新建其他方法，这里传入了px。
 
 /***************************************************************************
- * If we have the port, return the payload
+ * 有端口号时，返回Payload
  ***************************************************************************/
 int
 payloads_udp_lookup(
@@ -248,10 +245,8 @@ payloads_udp_destroy(struct PayloadsUDP *payloads)
 }
 
 /***************************************************************************
- * We read lots of UDP payloads from the files. However, we probably
- * aren't using most, or even any, of them. Therefore, we use this
- * function to remove the ones we won't be using. This makes lookups
- * faster, ideally looking up only zero or one rather than twenty.
+* 我们从文件中读取了大量UDP有效载荷。然而,我们可能没有使用大部分，甚至任何一个。
+* 因此，我们使用这个函数删除我们不会使用的。这使得查找更快，理想情况下只查找0或1而不是20。
  ***************************************************************************/
 void
 payloads_udp_trim(struct PayloadsUDP *payloads, const struct RangeList *target_ports)
@@ -260,10 +255,10 @@ payloads_udp_trim(struct PayloadsUDP *payloads, const struct RangeList *target_p
     struct PayloadUDP_Item **list2;
     unsigned count2 = 0;
 
-    /* Create a new list */
+    /* 新建链表 */
     list2 = REALLOCARRAY(0, payloads->max, sizeof(list2[0]));
 
-    /* Add to the new list any used ports */
+    /* 对已占用的端口号添加节点 */
     for (i=0; i<payloads->count; i++) {
         unsigned found;
 
@@ -277,7 +272,7 @@ payloads_udp_trim(struct PayloadsUDP *payloads, const struct RangeList *target_p
         //payloads->list[i] = 0;
     }
 
-    /* Replace the old list */
+    /* 替换老的链表 */
     free(payloads->list);
     payloads->list = list2;
     payloads->count = count2;
@@ -290,10 +285,10 @@ payloads_oproto_trim(struct PayloadsUDP *payloads, const struct RangeList *targe
     struct PayloadUDP_Item **list2;
     unsigned count2 = 0;
     
-    /* Create a new list */
+    /*  t */
     list2 = REALLOCARRAY(0, payloads->max, sizeof(list2[0]));
     
-    /* Add to the new list any used ports */
+    /* 将使用过的端口添加到新列表中 */
     for (i=0; i<payloads->count; i++) {
         unsigned found;
         
@@ -306,14 +301,14 @@ payloads_oproto_trim(struct PayloadsUDP *payloads, const struct RangeList *targe
         }
     }
     
-    /* Replace the old list */
+    /* 替换老的链表 */
     free(payloads->list);
     payloads->list = list2;
     payloads->count = count2;
 }
 
 /***************************************************************************
- * remove leading/trailing whitespace
+ * 去掉首尾空格
  ***************************************************************************/
 static void
 trim(char *line, size_t sizeof_line)
@@ -488,8 +483,8 @@ get_next_line(FILE *fp, unsigned *line_number, char *line, size_t sizeof_line)
 
 
 /***************************************************************************
- * Adds a payloads template for the indicated datagram protocol, which
- * is UDP or Oproto ("other IP protocol").
+* 为指定的数据报协议添加有效负载模板
+* 是UDP或Oproto(“其他IP协议”)。
  ***************************************************************************/
 static unsigned
 payloads_datagram_add(struct PayloadsUDP *payloads,
@@ -503,14 +498,14 @@ payloads_datagram_add(struct PayloadsUDP *payloads,
     uint64_t i;
 
     for (i=0; i<port_count; i++) {
-        /* grow the list if we need to */
+        /* 扩充链表 */
         if (payloads->count + 1 > payloads->max) {
             size_t new_max = payloads->max*2 + 1;
             payloads->list = REALLOCARRAY(payloads->list, new_max, sizeof(payloads->list[0]));
             payloads->max = new_max;
         }
 
-        /* allocate space for this record */
+        /* 为当前记录分配内存 */
         p = MALLOC(sizeof(p[0]) + length);
         p->port = rangelist_pick(ports, i);
         p->source_port = source_port;
@@ -519,7 +514,7 @@ payloads_datagram_add(struct PayloadsUDP *payloads,
         p->xsum = partial_checksum(buf, length);
         p->set_cookie = set_cookie;
 
-        /* insert in sorted order */
+        /* 排序插入 */
         {
             unsigned j;
 
@@ -542,15 +537,14 @@ payloads_datagram_add(struct PayloadsUDP *payloads,
             payloads->count += count;
         }
     }
-    return count; /* zero or one */
+    return count; /* 0或1 */
 }
 
 /***************************************************************************
- * Called during processing of the "--pcap-payloads <filename>" directive.
- * This is the well-known 'pcap' file format. This code strips off the
- * headers of the packets then preserves just the payload portion
- * and port number.
- ***************************************************************************/
+* 在处理“--pcap-payload”指令期间调用。
+* 这是众所周知的“pcap”文件格式。这段代码去掉了
+* 数据包的头只保留有效负载部分和端口号。
+***************************************************************************/
 void
 payloads_read_pcap(const char *filename,
                    struct PayloadsUDP *payloads,
@@ -561,18 +555,18 @@ payloads_read_pcap(const char *filename,
 
     LOG(2, "payloads:'%s': opening packet capture\n", filename);
 
-    /* open packet-capture */
+    /* 打开抓包处理 */
     pcap = pcapfile_openread(filename);
     if (pcap == NULL) {
         fprintf(stderr, "payloads: can't read from file '%s'\n", filename);
         return;
     }
-
-    /* for all packets in the capture file
-     *  - read in packet
-     *  - parse packet
-     *  - save payload
-     */
+    /*
+    * 用于捕获文件中的所有包
+    * -读包
+    * -解析包
+    * -节省有效载荷
+    */
     for (;;) {
         unsigned x;
         unsigned captured_length;
@@ -582,7 +576,7 @@ payloads_read_pcap(const char *filename,
         struct Range range[1] = {{0}};
 
         /*
-         * Read the next packet from the capture file
+         * 读取下一个包
          */
         {
             unsigned time_secs;
@@ -598,20 +592,20 @@ payloads_read_pcap(const char *filename,
             break;
 
         /*
-         * Parse the packet up to its headers
+         * 根据头信息解析数据包
          */
         x = preprocess_frame(buf, captured_length, 1, &parsed);
         if (!x)
-            continue; /* corrupt packet */
+            continue; /* 损坏的包 */
 
         /*
-         * Make sure it has UDP
+         * 确认有UDP信息
          */
         switch (parsed.found) {
         case FOUND_DNS:
         case FOUND_UDP:
                 /*
-                 * Kludge: mark the port in the format the API wants
+                 * 手工将端口号定位API预期格式
                  */
                 ports->list = range;
                 ports->count = 1;
@@ -619,10 +613,7 @@ payloads_read_pcap(const char *filename,
                 range->begin = parsed.port_dst;
                 range->end = range->begin;
                 
-                /*
-                 * Now we've completely parsed the record, so add it to our
-                 * list of payloads
-                 */
+                /* 现在我们已经完全解析了这个记录，所以将它添加到我们的有效载荷清单 */
                 count += payloads_datagram_add(   payloads,
                                           buf + parsed.app_offset,
                                           parsed.app_length,
@@ -632,7 +623,7 @@ payloads_read_pcap(const char *filename,
             break;
         case FOUND_OPROTO:
                 /*
-                 * Kludge: mark the port in the format the API wants
+                 * 手工将端口号定位API预期格式
                  */
                 ports->list = range;
                 ports->count = 1;
@@ -640,10 +631,7 @@ payloads_read_pcap(const char *filename,
                 range->begin = parsed.ip_protocol;
                 range->end = range->begin;
                 
-                /*
-                 * Now we've completely parsed the record, so add it to our
-                 * list of payloads
-                 */
+                /* 现在我们已经完全解析了这个记录，所以将它添加到我们的有效载荷清单 */
                 count += payloads_datagram_add(oproto_payloads,
                                           buf + parsed.transport_offset,
                                           parsed.transport_length,
@@ -663,7 +651,7 @@ payloads_read_pcap(const char *filename,
 }
 
 /***************************************************************************
- * Called during processing of the "--nmap-payloads <filename>" directive.
+ * 选项 "--nmap-payloads <filename>" 的调用过程.
  ***************************************************************************/
 void
 payloads_udp_readfile(FILE *fp, const char *filename,
@@ -736,10 +724,7 @@ payloads_udp_readfile(FILE *fp, const char *filename,
             line[0] = '\0';
         }
 
-        /*
-         * Now we've completely parsed the record, so add it to our
-         * list of payloads
-         */
+        /* 现在我们已经完全解析了这个记录，所以将它添加到我们的有效载荷清单 */
 		if (buf_length)
 			payloads_datagram_add(payloads, buf, buf_length, ports, source_port, 0);
 
@@ -762,14 +747,14 @@ payloads_udp_create(void)
     payloads = CALLOC(1, sizeof(*payloads));
     
     /*
-     * For popular parts, include some hard-coded default UDP payloads
+     * 常用部分直接硬编码
      */
     for (i=0; hard_coded[i].length; i++) {
         //struct Range range;
         struct RangeList list = {0};
         unsigned length;
 
-        /* Kludge: create a pseudo-rangelist to hold the one port */
+        /* 手动创建一个伪rangelist来保存一个端口 */
         /*list.list = &range;
         list.count = 1;
         range.begin = hard_coded[i].port;
@@ -780,8 +765,7 @@ payloads_udp_create(void)
         if (length == 0xFFFFFFFF)
             length = (unsigned)strlen(hard_coded[i].buf);
 
-        /* Add this to our real payloads. This will get overwritten
-         * if the user adds their own with the same port */
+        /* 把这个加到实际有效载荷中。如果用户使用相同的端口添加了自己的端口，则会覆盖此操作 */
         payloads_datagram_add(payloads,
                     (const unsigned char*)hard_coded[i].buf,
                     length,
@@ -807,22 +791,21 @@ payloads_oproto_create(void)
     payloads = CALLOC(1, sizeof(*payloads));
     
     /*
-     * Some hard-coded ones, like GRE
+     * 硬编码一部分，例如 GRE
      */
     for (i=0; hard_coded[i].length; i++) {
         //struct Range range;
         struct RangeList list = {0};
         unsigned length;
         
-        /* Kludge: create a pseudo-rangelist to hold the one port */
+        /* 手动创建一个伪rangelist来保存一个端口 */
         rangelist_add_range(&list, hard_coded[i].port, hard_coded[i].port);
         
         length = hard_coded[i].length;
         if (length == 0xFFFFFFFF)
             length = (unsigned)strlen(hard_coded[i].buf);
         
-        /* Add this to our real payloads. This will get overwritten
-         * if the user adds their own with the same port */
+        /* 把这个加到实际有效载荷中。如果用户使用相同的端口添加了自己的端口，则会覆盖此操作 */
         payloads_datagram_add(payloads,
                          (const unsigned char*)hard_coded[i].buf,
                          length,

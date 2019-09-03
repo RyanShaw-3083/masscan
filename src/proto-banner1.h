@@ -86,7 +86,7 @@ struct SSLRECORD {
 
     union {
         struct {
-            /* all these structs should start with state */
+            /* 所有机构体应该以状态进度变量为起始 */
             unsigned state;
         } all;
         struct SSL_SERVER_HELLO server_hello;
@@ -253,8 +253,7 @@ enum {
 };
 
 /**
- * A registration structure for various TCP stream protocols
- * like HTTP, SSL, and SSH
+ * 各种TCP流协议的注册结构比如HTTP、SSL和SSH
  */
 struct ProtocolParserStream {
     const char *name;
@@ -274,42 +273,36 @@ struct ProtocolParserStream {
     void (*cleanup)(struct ProtocolState *stream_state);
     void (*transmit_hello)(const struct Banner1 *banner1, struct InteractiveData *more);
     
-    /* When multiple items are registered for a port. When one
-     * connection is closed, the next will be opened.*/
+    /* 当为一个端口注册多个项时。当一个连接关闭时，将打开下一个连接。*/
     struct ProtocolParserStream *next;
     
-    /*NOTE: the 'next' parameter should be the last one in this structure,
-     * because we statically initialize the rest of the members at compile
-     * time, and then use this last parameter to link up structures
-     * at runtime */
+    /*NOTE: “next”参数应该是这个结构中的最后一个参数，
+     *因为我们在编译时静态初始化其余成员，然后在运行时使用最后一个参数链接结构 */
 };
 
 
 /**
- * Patterns that match the data from the start of a TCP connection.
- * This will hint at what protocol that connection might be.
+ * 匹配TCP连接开始时的数据的模式。这将提示该连接可能是什么协议。
  */
 struct Patterns {
     
-    /** A string like "SSH-" or "220 " that matches a banner */
+    /** 一个字符串，如“SSH-”或“220”，匹配一个Banners */
     const char *pattern;
     
-    /** The length of that string, since it may be binary containing
-     * nul characters */
+    /** 该字符串的长度，因为它可能是包含nul字符的二进制文件 */
     unsigned pattern_length;
     
-    /** An integer arbitrarily assigned to this pattern, which should
-     * probably match the protocol ID that we are looking for */
+    /** 任意分配给此模式的整数，应该是可能匹配我们正在寻找的协议ID */
     unsigned id;
     
     /**
-     * Whether this string matches only at the begining ('anchored')
-     * or anywhere in the input. Virtually all the patterns are anchored.
+     * 这个字符串是否只匹配开始('锚定')或者输入的任何地方。
+     * 几乎所有的模式都是固定的。
      */
     unsigned is_anchored;
     
     /**
-     * Some extra flags for the pattern matcher for a few os the patterns.
+     * 几个模式匹配器的模式匹配器的一些额外标志.
      */
     unsigned extra;
 };
@@ -332,8 +325,7 @@ banner1_parse(
 
 
 /**
- * Test the banner protocol-parsing system by reading
- * in a capture file
+ * 通过阅读测试banner协议解析系统在捕获文件中
  */
 void banner1_test(const char *filename);
 

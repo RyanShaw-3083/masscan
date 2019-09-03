@@ -1,11 +1,10 @@
 /*
 
-    Construct a TCP packet based upon a template.
+基于模板构造TCP包。
 
-    The (eventual) idea of this module is to make this scanner extensible
-    by providing an arbitrary packet template. Thus, the of this module
-    is to take an existing packet template, parse it, then make
-    appropriate changes.
+这个模块的(最终)想法是使这个扫描器可扩展通过提供一个任意的包模板。
+因此，这个模块的是取一个现有的包模板，解析它，然后生成并适当的改变。
+
 */
 #include "templ-pkt.h"
 #include "templ-port.h"
@@ -173,8 +172,7 @@ static unsigned char default_arp_template[] =
 
 
 /***************************************************************************
- * Checksum the IP header. This is a "partial" checksum, so we
- * don't reverse the bits ~.
+ * 检查IP报头。这是一个“部分”校验和，所以我们不需要按位翻转~。
  ***************************************************************************/
 static unsigned
 ip_header_checksum(const unsigned char *px, unsigned offset, unsigned max_offset)
@@ -183,17 +181,17 @@ ip_header_checksum(const unsigned char *px, unsigned offset, unsigned max_offset
     unsigned xsum = 0;
     unsigned i;
 
-    /* restrict check only over packet */
+    /* 检查包长度是否超过预定限制包 */
     if (max_offset > offset + header_length)
         max_offset = offset + header_length;
 
-    /* add all the two-byte words together */
+    /* 把所有两个字节加在一起 */
     xsum = 0;
     for (i = offset; i < max_offset; i += 2) {
         xsum += px[i]<<8 | px[i+1];
     }
 
-    /* if more than 16 bits in result, reduce to 16 bits */
+    /* 如果结果超过16位，则减少到16位 */
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
@@ -210,7 +208,7 @@ tcp_checksum2(const unsigned char *px, unsigned offset_ip,
     uint64_t xsum = 0;
     unsigned i;
 
-    /* pseudo checksum */
+    /* 伪头部校验和 */
     xsum = 6;
     xsum += tcp_length;
     xsum += px[offset_ip + 12] << 8 | px[offset_ip + 13];
@@ -218,12 +216,12 @@ tcp_checksum2(const unsigned char *px, unsigned offset_ip,
     xsum += px[offset_ip + 16] << 8 | px[offset_ip + 17];
     xsum += px[offset_ip + 18] << 8 | px[offset_ip + 19];
 
-    /* tcp checksum */
+    /* tcp 校验和 */
     for (i=0; i<tcp_length; i += 2) {
         xsum += px[offset_tcp + i]<<8 | px[offset_tcp + i + 1];
     }
 
-    xsum -= (tcp_length & 1) * px[offset_tcp + i - 1]; /* yea I know going off end of packet is bad so sue me */
+    xsum -= (tcp_length & 1) * px[offset_tcp + i - 1]; /* 是的，我知道最后的包是错的，有胆来干我 */
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
@@ -242,7 +240,7 @@ tcp_checksum(struct TemplatePacket *tmpl)
     unsigned xsum = 0;
     unsigned i;
 
-    /* pseudo checksum */
+    /* 伪校验和 */
     xsum = 6;
     xsum += tmpl->offset_app - tmpl->offset_tcp;
     xsum += px[tmpl->offset_ip + 12] << 8 | px[tmpl->offset_ip + 13];
@@ -250,7 +248,7 @@ tcp_checksum(struct TemplatePacket *tmpl)
     xsum += px[tmpl->offset_ip + 16] << 8 | px[tmpl->offset_ip + 17];
     xsum += px[tmpl->offset_ip + 18] << 8 | px[tmpl->offset_ip + 19];
 
-    /* tcp checksum */
+    /* tcp校验和 */
     for (i=tmpl->offset_tcp; i<tmpl->offset_app; i += 2) {
         xsum += tmpl->packet[i]<<8 | tmpl->packet[i+1];
     }
@@ -272,7 +270,7 @@ udp_checksum2(const unsigned char *px, unsigned offset_ip,
     uint64_t xsum = 0;
     unsigned i;
 
-    /* pseudo checksum */
+    /* 伪校验和 */
     xsum = 17;
     xsum += tcp_length;
     xsum += px[offset_ip + 12] << 8 | px[offset_ip + 13];
@@ -280,12 +278,12 @@ udp_checksum2(const unsigned char *px, unsigned offset_ip,
     xsum += px[offset_ip + 16] << 8 | px[offset_ip + 17];
     xsum += px[offset_ip + 18] << 8 | px[offset_ip + 19];
 
-    /* tcp checksum */
+    /* tcp校验和 */
     for (i=0; i<tcp_length; i += 2) {
         xsum += px[offset_tcp + i]<<8 | px[offset_tcp + i + 1];
     }
 
-    xsum -= (tcp_length & 1) * px[offset_tcp + i - 1]; /* yea I know going off end of packet is bad so sue me */
+    xsum -= (tcp_length & 1) * px[offset_tcp + i - 1]; /* 是的，我知道最后的包是错的，有胆来干我 */
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
@@ -318,7 +316,7 @@ icmp_checksum2(const unsigned char *px,
         xsum += px[offset_icmp + i]<<8 | px[offset_icmp + i + 1];
     }
 
-    xsum -= (icmp_length & 1) * px[offset_icmp + i - 1]; /* yea I know going off end of packet is bad so sue me */
+    xsum -= (icmp_length & 1) * px[offset_icmp + i - 1]; /* 是的，我知道最后的包是错的，有胆来干我 */
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
     xsum = (xsum & 0xFFFF) + (xsum >> 16);
@@ -367,7 +365,7 @@ tcp_set_window(unsigned char *px, size_t px_length, unsigned window)
     size_t offset;
     unsigned xsum;
 
-    /* Parse the frame looking for hte TCP header */
+    /* 解析数据帧，查找TCP头 */
     x = preprocess_frame(px, (unsigned)px_length, 1 /*enet*/, &parsed);
     if (!x || parsed.found == FOUND_NOTHING)
         return;
@@ -378,7 +376,7 @@ tcp_set_window(unsigned char *px, size_t px_length, unsigned window)
         return;
 
 
-    /* set the new window */
+    /* 建立TCP WIN值 */
 #if 0
     xsum = px[offset + 16] << 8 | px[offset + 17];
     xsum = (~xsum)&0xFFFF;
@@ -434,8 +432,7 @@ tcp_create_packet(
     old_len = px[offset_ip+2]<<8 | px[offset_ip+3];
 
     /*
-     * Fill in the empty fields in the IP header and then re-calculate
-     * the checksum.
+     * 填写IP报头中的空字段，然后重新计算校验和。
      */
     px[offset_ip+2] = (unsigned char)(ip_len>> 8);
     px[offset_ip+3] = (unsigned char)(ip_len & 0xFF);
@@ -463,7 +460,7 @@ tcp_create_packet(
     px[offset_ip+11] = (unsigned char)(xsum & 0xFF);
 
     /*
-     * now do the same for TCP
+     * TCP处理流程相同
      */
     px[offset_tcp+ 0] = (unsigned char)(port_me >> 8);
     px[offset_tcp+ 1] = (unsigned char)(port_me & 0xFF);
@@ -537,9 +534,8 @@ udp_payload_fixup(struct TemplatePacket *tmpl, unsigned port, unsigned seqno)
 
 
 /***************************************************************************
- * This is the function that formats the transmitted packets for probing
- * machines. It takes a template for the protocol (usually a TCP SYN
- * packet), then sets the destination IP address and port numbers.
+ * 这是为探测机器格式化传输数据包的函数。
+ * 它接受协议的模板(通常是TCP SYN包)，然后设置目标IP地址和端口号。
  ***************************************************************************/
 void
 template_set_target(
@@ -562,10 +558,9 @@ template_set_target(
     *r_length = sizeof_px;
 
     /*
-     * Find out which packet template to use. This is because we can
-     * simultaneously scan for both TCP and UDP (and others). We've
-     * just overloaded the "port" field to signal which protocol we
-     * are using
+     * 找出要使用哪个包模板。
+     * 这是因为我们可以同时扫描TCP和UDP(以及其他)。
+     * 我们已经刚刚重载了“port”字段来表示我们要使用哪个协议
      */
     if (port_them < Templ_TCP + 65536)
         tmpl = &tmplset->pkts[Proto_TCP];
@@ -602,7 +597,7 @@ template_set_target(
         return;
     }
 
-    /* Create some shorter local variables to work with */
+    /* 创建一些临时的局部变量 */
     if (*r_length > tmpl->length)
         *r_length = tmpl->length;
     memcpy(px, tmpl->packet, *r_length);
@@ -611,8 +606,7 @@ template_set_target(
     ip_id = ip_them ^ port_them ^ seqno;
 
     /*
-     * Fill in the empty fields in the IP header and then re-calculate
-     * the checksum.
+     * 填充IP头重新计算校验和
      */
     {
         unsigned total_length = tmpl->length - tmpl->offset_ip;
@@ -662,7 +656,7 @@ template_set_target(
 
 
     /*
-     * Now do the checksum for the higher layer protocols
+     * 为高层协议计算校验和
      */
     xsum = 0;
     switch (tmpl->proto) {
@@ -756,10 +750,10 @@ template_set_target(
                                      px, sizeof_px, r_length);
             break;
     case Proto_ARP:
-        /* don't do any checksumming */
+        /* ARP协议不计算校验和 */
         break;
     case Proto_Oproto:
-        /* TODO: probably need to add checksums for certain protocols */
+        /* TODO: 可能特定协议需要特定的校验和算法 */
         break;
     case Proto_Count:
         break;
@@ -768,8 +762,7 @@ template_set_target(
 
 
 /***************************************************************************
- * Here we take a packet template, parse it, then make it easier to work
- * with.
+ * 这里我们使用一个包模板，解析它，然后使它更容易操作
  ***************************************************************************/
 static void
 _template_init(
@@ -786,9 +779,10 @@ _template_init(
     unsigned x;
 
     /*
-     * Create the new template structure:
-     * - zero it out
-     * - make copy of the old packet to serve as new template
+     * 创建新的模板结构:
+
+     *  -把它归零
+     *  -复制旧封包作为新模板
      */
     memset(tmpl, 0, sizeof(*tmpl));
     tmpl->length = (unsigned)packet_size;
@@ -798,8 +792,7 @@ _template_init(
     px = tmpl->packet;
 
     /*
-     * Parse the existing packet template. We support TCP, UDP, ICMP,
-     * and ARP packets.
+     * 解析现有的包模板。我们支持TCP, UDP, ICMP，和ARP包。
      */
     x = preprocess_frame(px, tmpl->length, 1 /*enet*/, &parsed);
     if (!x || parsed.found == FOUND_NOTHING) {
@@ -815,7 +808,7 @@ _template_init(
         tmpl->length = parsed.ip_offset + parsed.ip_length;
 
     /*
-     * Overwrite the MAC and IP addresses
+     * 覆盖MAC和IP地址
      */
     memcpy(px+0, mac_dest, 6);
     memcpy(px+6, mac_source, 6);
@@ -831,8 +824,7 @@ _template_init(
     /*
      * ARP
      *
-     * If this is an ARP template (for doing arpscans), then just set our
-     * configured source IP and MAC addresses.
+     * ARP扫描仅配置源MAC和源IP.
      */
     if (parsed.found == FOUND_ARP) {
         memcpy((char*)parsed.ip_src - 6, mac_source, 6);
@@ -843,9 +835,9 @@ _template_init(
     /*
      * IPv4
      *
-     * Calculate the partial checksum. We zero out the fields that will be
-     * added later the packet, then calculate the checksum as if they were
-     * zero. This makes recalculation of the checksum easier when we transmit
+     * 计算部分校验和。
+     * 我们把这些字段归零稍后添加到数据包，然后像计算校验和一样计算校验和。
+     * 这使我们在传输时更容易重新计算校验和。
      */
     memset(px + tmpl->offset_ip + 4, 0, 2);  /* IP ID field */
     memset(px + tmpl->offset_ip + 10, 0, 2); /* checksum */
@@ -855,8 +847,7 @@ _template_init(
                                             tmpl->length);
 
     /*
-     * Higher layer protocols: zero out dest/checksum fields, then calculate
-     * a partial checksum
+     * 高级层协议:清空dest/校验和字段，然后计算部分校验和
      */
     switch (parsed.ip_protocol) {
     case 1: /* ICMP */
@@ -873,7 +864,7 @@ _template_init(
             break;
         break;
     case 6: /* TCP */
-        /* zero out fields that'll be overwritten */
+        /* 用0覆盖目标字段 */
         memset(px + tmpl->offset_tcp + 0, 0, 8); /* destination port and seqno */
         memset(px + tmpl->offset_tcp + 16, 0, 2); /* checksum */
         tmpl->checksum_tcp = tcp_checksum(tmpl);
@@ -895,9 +886,8 @@ _template_init(
     /*
      * DATALINK KLUDGE
      *
-     * Adjust the data link header in case of Raw IP packets. This isn't
-     * the correct way to do this, but I'm too lazy to refactor code
-     * for the right way, so we'll do it this way now.
+     * 调整原始IP包的数据链接头。这不是
+     * 正确的方法，但是我太懒了，没有重构代码正确的方法，所以我们现在这样做。
      */
     if (data_link == 12 /* Raw IP */) {
         tmpl->length -= tmpl->offset_ip;
@@ -1008,9 +998,8 @@ template_get_source_ip(struct TemplateSet *tmplset)
 }
 
 /***************************************************************************
- * Retrieve the source-port of the packet. We parse this from the packet
- * because while the source-port can be configured separately, we usually
- * get a raw packet template.
+ *检索数据包的源端口。
+ 我们从包中解析它，因为虽然源代码端口可以单独配置，但我们通常从原始包模板获取。
  ***************************************************************************/
 unsigned
 template_get_source_port(struct TemplateSet *tmplset)
@@ -1023,7 +1012,7 @@ template_get_source_port(struct TemplateSet *tmplset)
 }
 
 /***************************************************************************
- * Overwrites the source-port field in the packet template.
+ * 覆盖源模板中的源端口号
  ***************************************************************************/
 void
 template_set_source_port(struct TemplateSet *tmplset, unsigned port)
@@ -1043,7 +1032,7 @@ template_set_source_port(struct TemplateSet *tmplset, unsigned port)
 }
 
 /***************************************************************************
- * Overwrites the TTL of the packet
+ * 覆盖数据包TTL值
  ***************************************************************************/
 void
 template_set_ttl(struct TemplateSet *tmplset, unsigned ttl)

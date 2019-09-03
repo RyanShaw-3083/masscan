@@ -1,5 +1,5 @@
 /*
-     state machine for receiving banners
+     接收Banners的状态机
 */
 #include "smack.h"
 #include "rawsock-pcapfile.h"
@@ -33,7 +33,7 @@ struct Patterns patterns[] = {
     {"\x00\x00" "**" "\xff" "SMB", 8, PROTO_SMB, SMACK_ANCHOR_BEGIN | SMACK_WILDCARDS, 0},
     {"\x00\x00" "**" "\xfe" "SMB", 8, PROTO_SMB, SMACK_ANCHOR_BEGIN | SMACK_WILDCARDS, 0},
     
-    {"\x82\x00\x00\x00", 4, PROTO_SMB, SMACK_ANCHOR_BEGIN, 0}, /* Positive Session Response */
+    {"\x82\x00\x00\x00", 4, PROTO_SMB, SMACK_ANCHOR_BEGIN, 0}, /* 积极的会话响应 */
     
     {"\x83\x00\x00\x01\x80", 5, PROTO_SMB, SMACK_ANCHOR_BEGIN, 0}, /* Not listening on called name */
     {"\x83\x00\x00\x01\x81", 5, PROTO_SMB, SMACK_ANCHOR_BEGIN, 0}, /* Not listening for calling name */
@@ -307,14 +307,14 @@ banner1_parse(
         fprintf(stderr, "banner1: internal error\n");
         break;
 
-    }
+    }//-Q0-大概我就卡在了这，如果不去修改Masscan，一些新的协议无法正确获取Banners
 
     return tcb_state->app_proto;
 }
 
 
 /***************************************************************************
- * Create the --banners systems
+ * 为banner选项提供支持
  ***************************************************************************/
 struct Banner1 *
 banner1_create(void)
@@ -326,9 +326,8 @@ banner1_create(void)
     
 
     /*
-     * This creates a pattern-matching blob for heuristically determining
-     * a protocol that runs on wrong ports, such as how FTP servers
-     * often respond with "220 " or VNC servers respond with "RFB".
+     * 这将创建一个模式匹配blob，用于启发式地确定在错误端口上运行的协议
+     * 比如FTP服务器通常用“220”响应或VNC服务器用“RFB”响应。
      */
     b->smack = smack_create("banner1", SMACK_CASE_INSENSITIVE);
     for (i=0; patterns[i].pattern; i++)
@@ -341,7 +340,7 @@ banner1_create(void)
     smack_compile(b->smack);
 
     /*
-     * [TODO] These need to be moved into the 'init' functions
+     * [TODO] 应该将他们放到初始化函数内  //-Q0-banners构建也类似模板机制，应该同数据包模板一样，在main中初始化
      */
     b->payloads.tcp[80] = &banner_http;
     b->payloads.tcp[8080] = &banner_http;
@@ -366,8 +365,7 @@ banner1_create(void)
     b->payloads.tcp[3389] = (void*)&banner_rdp;
     
     /* 
-     * This goes down the list of all the TCP protocol handlers and initializes
-     * them.
+     * 这将遍历所有TCP协议处理程序的列表并初始化。
      */
     banner_ftp.init(b);
     banner_http.init(b);
@@ -383,7 +381,7 @@ banner1_create(void)
     banner_rdp.init(b);
     banner_vnc.init(b);
     
-    /* scripting/versioning come after the rest */
+    /* 脚本/版本控制紧随其后 */
     banner_scripting.init(b);
     banner_versioning.init(b);
 

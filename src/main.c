@@ -1,6 +1,6 @@
 // 其实我只想添加一个新的探测报文到 MASSCAN 内，甚至类似实现“应用层单包探测”。
 //      实际过程中发现masscan不能很好地获取banners以及端口开放情况。（是我的使用场景问题，或者姿势不对。）
-//      也许读完整个代码，我会发现我根本不需要这么做。
+//      也许读完整个代码，我会发现我根本不需要这么做。（对Lua我是拒绝的。。。）
 //      能解决C10M问题的大佬，写出的东西一定是值得学习的。
 //      DPDK也用了类似RTE_RING结构？ —— 是的。。。MASSCAN使用DPDK的RTE源码，并绕过内核Socket加速网络IO。
 
@@ -471,7 +471,7 @@ infinite:
             batch_size = throttler_next_batch(throttler, packets_sent);
 
 
-            /* 从接收线程中发送数据包 */
+            /* 从线程中发送数据包 */
             flush_packets(  adapter,
                             parms->packet_buffers,
                             parms->transmit_queue,

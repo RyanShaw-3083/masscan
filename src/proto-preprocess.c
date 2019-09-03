@@ -1,13 +1,11 @@
-/* Copyright: (c) 2009-2010 by Robert David Graham */
+/* Copyright: (c) 2009-2010 by Robert David Graham */ // 感谢大佬！
 /****************************************************************************
 
         数据包预处理
 
-  This function parses the entire TCP/IP stack looking for IP addresses and
-  ports. The intent is that this is the minimal parsing necessary to find
-  address/port information. While it does basic checking (to confirm length
-  information, for example), it does not do more extensive checking (like
-  whether the checksum is correct).
+    此函数解析整个TCP/IP堆栈，查找IP地址和端口。
+    其目的是用最小解析执行过程去找到所需的地址/端口信息。
+    它做基本的检查(例如确认长度信息)，它不做更广泛的检查(比如检查校验和是否正确)。
 
  ****************************************************************************/
 #include "proto-preprocess.h"
@@ -39,11 +37,10 @@
 #define ex64le(px)  ( ((uint64_t)ex32be(px)) + (((uint64_t)ex32be((px)+4))<<32L) )
 
 /**
- *  Call this frequently while parsing through the headers to make sure that
- *  we don't go past the end of a packet. Remember that 1 byte past the
- *  end can cause a crash.
+ * 在解析报头时经常调用这个函数，以确保我们不会超过包的末尾。
+ * 请记住后面的1个字节越界读取会导致崩溃。
  **/
-#define VERIFY_REMAINING(n,f) if (offset+(n) > length) return 0; else {info->found_offset=offset; info->found=f;}
+#define VERIFY_REMAINING(n,f) if (offset+(n) > length) return 0; else {info->found_offset=offset; info->found=f;}  //-Q0-为经常调用的函数提速
 
 
 /****************************************************************************
@@ -59,7 +56,7 @@ preprocess_frame(const unsigned char *px, unsigned length, unsigned link_type,
     info->found = FOUND_NOTHING;
     info->found_offset = 0;
 
-    /* If not standard Ethernet, go do something else */
+    /* 如果不是标准以太网帧（这里是帧。。），解析链路类型- */
     if (link_type != 1)
         goto parse_linktype;
 
@@ -85,31 +82,31 @@ parse_ipv4:
         info->ip_offset = offset;
         VERIFY_REMAINING(20, FOUND_IPV4);
 
-        /* Check version */
+        /* 版本检查 */
         if ((px[offset]>>4) != 4)
-            return 0; /* not IPv4 or corrupt */
+            return 0; /* 非IPv4或损坏的数据包 */
 
-        /* Check header length */
+        /* 确认头长度 */
         header_length = (px[offset] & 0x0F) * 4;
         VERIFY_REMAINING(header_length, FOUND_IPV4);
 
-        /*TODO: verify checksum */
+        /*TODO: 检查校验和 */
 
-        /* Check for fragmentation */
+        /* 验证分片 */
         flags = px[offset+6]&0xE0;
         fragment_offset = (ex16be(px+offset+6) & 0x3FFF) << 3;
         if (fragment_offset != 0 || (flags & 0x20))
-            return 0; /* fragmented */
+            return 0; /* 分片数据 */
 
-        /* Check for total-length */
+        /* 总长度确认 */
         total_length = ex16be(px+offset+2);
         VERIFY_REMAINING(total_length, FOUND_IPV4);
         if (total_length < header_length)
-            return 0; /* weird corruption */
-        length = offset + total_length; /* reduce the max length */
+            return 0; /* 接收错误 */
+        length = offset + total_length; /* 减少总长度值 */
 
 
-        /* Save off pseudo header for checksum calculation */
+        /* 保留伪首部，计算校验和 */
         info->ip_version = (px[offset]>>4)&0xF;
         info->ip_src = px+offset+12;
         info->ip_dst = px+offset+16;
@@ -119,18 +116,18 @@ parse_ipv4:
         if (info->ip_version != 4)
             return 0;
 
-        /* next protocol */
+        /* 下一层协议（IP承载的上层协议） */
         offset += header_length;
         info->transport_offset = offset;
-        switch (info->ip_protocol) {
+        switch (info->ip_protocol) {  //-Q0-Py没有Switch-Case，我差点忘了C有这么帅的东西。
         case   1: goto parse_icmp;
         case   6: goto parse_tcp;
         case  17: goto parse_udp;
         case 132: goto parse_sctp;
         default:
                 VERIFY_REMAINING(0, FOUND_OPROTO);
-                return 0; /* todo: should add more protocols, like ICMP */
-        }
+                return 0; /* todo: 应该添加更多协议，如ICMP */
+        } //（手动膜拜。。。）大佬辛苦了。。。萌新的我继续添加各种协议进去好了。。。
     }
 
 parse_tcp:
@@ -197,23 +194,23 @@ parse_ipv6:
 
         VERIFY_REMAINING(40, FOUND_IPV6);
 
-        /* Check version */
+        /* 检查版本 */
         if ((px[offset]>>4) != 6)
-            return 0; /* not IPv4 or corrupt */
+            return 0; /* 协议错误或数据损坏 */
 
-        /* Payload length */
+        /* Payload长度 */
         payload_length = ex16be(px+offset+4);
         VERIFY_REMAINING(40+payload_length, FOUND_IPV6);
         if (length > offset + 40 + payload_length)
             length = offset + 40 + payload_length;
 
-        /* Save off pseudo header for checksum calculation */
+        /* 保存伪首部计算校验和 */
         info->ip_version = (px[offset]>>4)&0xF;
         info->ip_src = px+offset+8;
         info->ip_dst = px+offset+8+16;
         info->ip_protocol = px[offset+6];
 
-        /* next protocol */
+        /* 上层协议起点 */
         offset += 40;
 
 parse_ipv6_next:
@@ -222,12 +219,12 @@ parse_ipv6_next:
         case 6: goto parse_tcp;
         case 17: goto parse_udp;
         case 58: goto parse_icmpv6;
-        case 0x2c: /* IPv6 fragmetn */
-            return 0;
+        case 0x2c: /* IPv6 分片 */
+            return 0;  //-Q0-IPv6分片解析...也许只获取第一片就好。。。
         default:
             //printf("***** test me ******\n");
-            return 0; /* todo: should add more protocols, like ICMP */
-        }
+            return 0; /* todo: 应该添加更多协议，如ICMP */
+        }//（手动膜拜。。。）大佬辛苦了。。。萌新的我继续添加各种各种协议进去好了。。。
     }
 
 parse_ipv6_hop_by_hop:
@@ -253,11 +250,11 @@ parse_vlan8021q:
     goto parse_ethertype;
 
 parse_vlanmpls:
-    /* MULTILEVEL:
-     * Regress: wireshark/mpls-twolevel.cap(9)
-     * There can be multiple layers of MPLS tags. This is marked by a
-     * flag in the header whether the current header is the "final"
-     * header in the stack*/
+    /* 多级:
+    * 回归:wireshark / mpls-twolevel.cap (9)
+    * 可以有多层MPLS标签。这个用a表示
+    * 在页眉中标记当前页眉是否为栈头“final”
+    * */
     while (offset + 4 < length && !(px[offset+2] & 1))
         offset += 4;
 
@@ -332,7 +329,7 @@ parse_radiotap_header:
      *           u_int16_t       it_len;         // entire length
      *           u_int32_t       it_present;     // fields present
      *   };
-     */
+     */ //-Q0-对于无线方面的支持，可能还需另行添加，不过仍需注意信道占用及发射功率问题。
     {
         unsigned header_length;
         unsigned features;
@@ -345,8 +342,7 @@ parse_radiotap_header:
 
         VERIFY_REMAINING(header_length, FOUND_RADIOTAP);
 
-        /* If FCS is present at the end of the packet, then change
-         * the length to remove it */
+        /* 如果存在帧尾校验序列，去掉FCS并修改长度值 */
         if (features & 0x4000) {
             unsigned fcs_header = ex32le(px+offset+header_length-4);
             unsigned fcs_frame = ex32le(px+length-4);
@@ -359,19 +355,17 @@ parse_radiotap_header:
     }
 
 
-parse_prism_header:
+parse_prism_header:  //-Q0-自定义Header处理及其他链路类型解析器的最佳参考！
     /* DLT_PRISM_HEADER */
-    /* This was original created to handle Prism II cards, but now we see this
-     * from other cards as well, such as the 'madwifi' drivers using Atheros
-     * chipsets.
-     *
-     * This starts with a "TLV" format, a 4-byte little-endian tag, followed by
-     * a 4-byte little-endian length. This TLV should contain the entire Prism
-     * header, after which we'll find the real header. Therefore, we should just
-     * be able to parse the 'length', and skip that many bytes. I'm told it's more
-     * complicated than that, but it seems to work right now, so I'm keeping it
-     * this way.
-     */
+    /* 
+    * 这最初是用来处理Prism II卡的，但现在我们看到了这个
+    * 也来自其他卡，比如使用Atheros的“madwifi”驱动程序芯片组。
+    *
+    * 首先是“TLV”格式，一个4字节的little-endian标记，然后是
+    * 4字节的小端字节长度。这个TLV应该包含整个棱镜
+    * header，然后我们将找到真正的header。因此，我们应该
+    * 能够解析“length”，并跳过那么多字节。我听说不止这些比那复杂，但现在好像能用，所以我留着
+    */
     {
         unsigned header_length;
         VERIFY_REMAINING(8, FOUND_PRISM);
@@ -425,15 +419,15 @@ parse_ethertype:
 
 parse_linktype:
     /*
-     * The "link-type" is the same as specified in "libpcap" headers
+     * 链路类型与libpcap中定义相同
      */
-    switch (link_type) {
+    switch (link_type) {  //-Q0-所以只有以下几种链路被支持，如果需要SDLC？
     case 1:     goto parse_ethernet;
     case 12:    goto parse_ipv4;
     case 0x69:  goto parse_wifi;
     case 113:   goto parse_linux_sll; /* LINKTYPE_LINUX_SLL DLT_LINUX_SLL */
     case 119:   goto parse_prism_header;
-    case 127:   goto parse_radiotap_header;
+    case 127:   goto parse_radiotap_header; //-Q0-有RadioTap就很棒棒！（部分频段信道占用时间是有法律规定的。）
     default:    return 0;
     }
     

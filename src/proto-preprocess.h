@@ -21,17 +21,17 @@ enum {
     FOUND_PRISM,
     FOUND_LLC,
     FOUND_ARP,
-    FOUND_SLL, /* Linux SLL */
-    FOUND_OPROTO, /* some other IP protocol */
+    FOUND_SLL, /* Linux SLL */ //-Q0-支持Linux Cooked-mode 抓包
+    FOUND_OPROTO, /* 其他IP承载的协议 */
 };
 struct PreprocessedInfo {
     const unsigned char *mac_src;
     const unsigned char *mac_dst;
     const unsigned char *mac_bss;
-    unsigned ip_offset;     /* 14 for normal Ethernet */
-    unsigned ip_version;    /* 4 or 6 */
+    unsigned ip_offset;     /* 14 以太网头 */
+    unsigned ip_version;    /* 4 or 6 */  //-Q0-支持IPv6！但是没有相关协议模板！
     unsigned ip_protocol;   /* 6 for TCP, 11 for UDP */
-    unsigned ip_length;     /* length of total packet */
+    unsigned ip_length;     /* IP数据报文长度 */
     unsigned ip_ttl;
     const unsigned char *ip_src;
     const unsigned char *ip_dst;
@@ -40,17 +40,17 @@ struct PreprocessedInfo {
     unsigned port_src;
     unsigned port_dst;
 
-    unsigned app_offset; /* start of TCP payload */
-    unsigned app_length; /* length of TCP payload */
+    unsigned app_offset; /* TCP payload起始位置 */
+    unsigned app_length; /* TCP payload长度 */
 
     int found;
     int found_offset;
 };
 
 /**
- * @return 1 if useful stuff found, 0 otherwise
+ * @return 1 如果找到有用的东西，否则为0
  */
 unsigned
-preprocess_frame(const unsigned char *px, unsigned length, unsigned link_type, struct PreprocessedInfo *info);
+preprocess_frame(const unsigned char *px, unsigned length, unsigned link_type, struct PreprocessedInfo *info);  //-Q0-预处理过程不过就直接continue到下一轮了。
 
 #endif
