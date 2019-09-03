@@ -1,20 +1,16 @@
 /*
-    Read in the configuration for MASSCAN.
+    读取 MASSCAN 配置.
 
-    Configuration parameters can be read either from the command-line
-    or a configuration file. Long parameters of the --xxxx variety have
-    the same name in both.
+    读取命令行或配置文件中的配置参数. 长配置名与变量名一致.
 
-    Most of the code in this module is for 'nmap' options we don't support.
-    That's because we support some 'nmap' options, and I wanted to give
-    more feedback for some of them why they don't work as expected, such
-    as reminding people that this is an asynchronous scanner.
+    多数代码为了支持nmap中我们不支持的功能.
+    我们支持nmap选项，提醒用户masscan是一个优秀的异步的扫描器.
 
 */
 #include "masscan.h"
 #include "masscan-version.h"
 #include "ranges.h"
-#include "range-file.h"     /* reads millions of IP addresss from a file */
+#include "range-file.h"     /* 读取IP范围文件 */
 #include "string_s.h"
 #include "logger.h"
 #include "proto-banner1.h"
@@ -242,16 +238,16 @@ count_cidr_bits(struct Range range)
 
 
 /***************************************************************************
- * Echoes the configuration for one nic
+ * 显示每个网卡的配置信息
  ***************************************************************************/
 static void
 masscan_echo_nic(struct Masscan *masscan, FILE *fp, unsigned i)
 {
     char zzz[64];
 
-    /* If we have only one adapter, then don't print the array indexes.
-     * Otherwise, we need to print the array indexes to distinguish
-     * the NICs from each other */
+    /* 如果只有一个网卡，不显示网卡信息数组索引.
+     * 打印索引仅为区别多网卡。
+     * */
     if (masscan->nic_count <= 1)
         zzz[0] = '\0';
     else
@@ -336,16 +332,15 @@ masscan_save_state(struct Masscan *masscan)
 
 #if 0
 /*****************************************************************************
- * Read in ranges from a file
- *
- * There can be multiple ranges on a line, delimited by spaces. In fact,
- * millions of ranges can be on a line: there is limit to the line length.
- * That makes reading the file a little bit squirrelly. From one perspective
- * this parser doesn't treat the new-line '\n' any different than other
- * space. But, from another perspective, it has to, because things like
- * comments are terminated by a newline. Also, it has to count the number
- * of lines correctly to print error messages.
- *****************************************************************************/
+* 从文件中读取范围
+*
+* 一行可以有多个范围，用空格分隔。事实上,
+* 一行可以有数百万个范围:行长度是有限制的。
+* 这样读文件就有点别扭了。从一个角度来看
+* 此解析器不会将新行'\n'与其他行区别对待
+* 但是，从另一个角度来看，这是必须的，因为像注释以换行结束这样的事情。
+* 此外，它还必须计算正确打印错误消息的行数。
+******************************************************************************/
 static void
 ranges_from_file(struct RangeList *ranges, const char *filename)
 {
@@ -356,9 +351,7 @@ ranges_from_file(struct RangeList *ranges, const char *filename)
     err = fopen_s(&fp, filename, "rt");
     if (err) {
         perror(filename);
-        exit(1); /* HARD EXIT: because if it's an exclusion file, we don't
-                  * want to continue. We don't want ANY chance of
-                  * accidentally scanning somebody */
+        exit(1); /* 强制结束读取排除文件, 我们不希望意外地扫描非预期范围 */
     }
 
     while (!feof(fp)) {
@@ -381,7 +374,7 @@ ranges_from_file(struct RangeList *ranges, const char *filename)
                     break;
                 }
             }
-            /* Loop back to the begining state at the start of a line */
+            /* 回到行开头 */
             continue;
         }
 
@@ -390,7 +383,7 @@ ranges_from_file(struct RangeList *ranges, const char *filename)
         }
 
         /*
-         * Read in a single entry
+         * 读取一行
          */
         if (!feof(fp)) {
             char address[64];
@@ -399,7 +392,7 @@ ranges_from_file(struct RangeList *ranges, const char *filename)
             unsigned offset = 0;
 
 
-            /* Grab all bytes until the next space or comma */
+            /* 读取所有字节，直到空格或符号 */
             address[0] = (char)c;
             i = 1;
             while (!feof(fp)) {
@@ -420,7 +413,7 @@ ranges_from_file(struct RangeList *ranges, const char *filename)
             }
             address[i] = '\0';
 
-            /* parse the address range */
+            /* 解析地址空间 */
             range = range_parse_ipv4(address, &offset, (unsigned)i);
             if (range.begin == 0xFFFFFFFF && range.end == 0) {
                 LOG(0, "%s:%u:%u: bad range spec: \"%.*s\"\n",
@@ -434,8 +427,7 @@ ranges_from_file(struct RangeList *ranges, const char *filename)
 
     fclose(fp);
 
-    /* Target list must be sorted every time it's been changed, 
-     * before it can be used */
+    /* 目标列表在每次使用前必须排序 */
     rangelist_sort(ranges);
 }
 #endif
@@ -539,8 +531,7 @@ parseBoolean(const char *str)
 }
 
 /***************************************************************************
- * Parses the number of seconds (for rotating files mostly). We do a little
- * more than just parse an integer. We support strings like:
+ * 解析秒数，通常为了得到一个按时间分割的结果文件。分割不仅支持数字，还支持如下的时间描述:
  *
  * hourly
  * daily
@@ -604,8 +595,7 @@ parseTime(const char *value)
 }
 
 /***************************************************************************
- * Parses a size integer, which can be suffixed with "tera", "giga", 
- * "mega", and "kilo". These numbers are in units of 1024 so suck it.
+ * 解析命令行中常见的计算机单位数值. 通常以1024作为进制.
  ***************************************************************************/
 static uint64_t
 parseSize(const char *value)
@@ -664,11 +654,8 @@ is_power_of_two(uint64_t x)
 
 
 /***************************************************************************
- * Tests if the named parameter on the command-line. We do a little
- * more than a straight string compare, because I get confused
- * whether parameter have punctuation. Is it "--excludefile" or
- * "--exclude-file"? I don't know if it's got that dash. Screw it,
- * I'll just make the code so it don't care.
+ * 检测是否为参数名. 匹配分割或按发音习惯书写的配置名称. 用"--excludefile"还是
+ * "--exclude-file"? 我不知道是否必要有个‘-’. 完善它，这样可以专心在功能上.
  ***************************************************************************/
 static int
 EQUALS(const char *lhs, const char *rhs)
@@ -823,7 +810,7 @@ config_top_ports(struct Masscan *masscan, unsigned n)
             rangelist_add_range(ports, top_tcp_ports[i], top_tcp_ports[i]);
     }
 
-    /* Targets must be sorted after every change, before being used */
+    /* 目标列表必须在使用前被排序 */
     rangelist_sort(ports);
 }
 
@@ -960,8 +947,8 @@ static int SET_hello_file(struct Masscan *masscan, const char *name, const char 
     char foo[64];
 
     if (masscan->echo) {
-        //Echoed as a string "hello-string" that was originally read
-        //from a file, not the "hello-filename"
+        //从文件中读取“hello-string”字符串，而不是发送Hello-string文件名。
+        //HelloStr需要从文件读取，写在命令行里是没用的
         return 0;
     }
     
@@ -971,9 +958,9 @@ static int SET_hello_file(struct Masscan *masscan, const char *name, const char 
         return CONF_ERR;
     }
 
-    /* When connecting via TCP, send this file */
-    x = fopen_s(&fp, value, "rb");
-    if (x != 0) {
+    /* 通过TCP连接时，发送Hello文件内容 */
+    x = fopen_s(&fp, value, "rb");  // 二进制读取，也许可以写好hello文件，用以添加基于TCP的更多协议。
+    if (x != 0) {   
         LOG(0, "[FAILED] could not read hello file\n");
         perror(value);
         return CONF_ERR;
@@ -1002,11 +989,11 @@ static int SET_hello_string(struct Masscan *masscan, const char *name, const cha
 {
     unsigned index;
     char *value2;
-    struct TcpCfgPayloads *pay;
-
-    if (masscan->echo) {
+    struct TcpCfgPayloads *pay;    
+    // Hello string 是TCP的Payload。Payload参数传递需要将其以Base64编码
+    if (masscan->echo) { // 所以空字符会导致数据截断，直接发二进制的希望很渺茫。。。
         for (pay = masscan->payloads.tcp; pay; pay = pay->next) {
-            fprintf(masscan->echo, "hello-string[%u] = %s\n",
+            fprintf(masscan->echo, "hello-string[%u] = %s\n", 
                     pay->port, pay->payload_base64);
         }
         return 0;
@@ -1076,7 +1063,7 @@ static int SET_noreset(struct Masscan *masscan, const char *name, const char *va
     masscan->is_noreset = parseBoolean(value);
     return CONF_OK;
 }
-
+// 关于Nmap这两个选项配置就很迷了。。。尝试过配置选项中写入，但没什么用。毕竟如果可以，精准扫描+探测就都有了。
 static int SET_nmap_payloads(struct Masscan *masscan, const char *name, const char *value)
 {
     UNUSEDPARM(name);
@@ -1093,7 +1080,7 @@ static int SET_nmap_payloads(struct Masscan *masscan, const char *name, const ch
 
     return CONF_OK;
 }
-
+// 也许应该查看下对应的Payloads在哪里被调用。
 static int SET_nmap_service_probes(struct Masscan *masscan, const char *name, const char *value)
 {
     UNUSEDPARM(name);
@@ -1153,7 +1140,7 @@ static int SET_output_format(struct Masscan *masscan, const char *name, const ch
             case Output_Default:    if (masscan->echo_all) fprintf(fp, "output-format = interactive\n"); break;
             case Output_Interactive:fprintf(fp, "output-format = interactive\n"); break;
             case Output_List:       fprintf(fp, "output-format = list\n"); break;
-            case Output_Unicornscan:fprintf(fp, "output-format = unicornscan\n"); break;
+            case Output_Unicornscan:fprintf(fp, "output-format = unicornscan\n"); break;  // 一个信息探测扫描器，涨姿势了。
             case Output_XML:        fprintf(fp, "output-format = xml\n"); break;
             case Output_Binary:     fprintf(fp, "output-format = binary\n"); break;
             case Output_Grepable:   fprintf(fp, "output-format = grepable\n"); break;
@@ -1318,8 +1305,8 @@ static int SET_pcap_payloads(struct Masscan *masscan, const char *name, const ch
         free(masscan->payloads.pcap_payloads_filename);
     masscan->payloads.pcap_payloads_filename = strdup(value);
     
-    /* file will be loaded in "masscan_load_database_files()" */
-    
+    /* 文件在函数 "masscan_load_database_files()" 中被加载 */
+    // 可以直接打pcap中的payload出去？？看来对Payload的调用要生成一张图才行。
     return CONF_OK;
 }
 
@@ -1446,7 +1433,7 @@ static int SET_rotate_directory(struct Masscan *masscan, const char *name, const
     strcpy_s(   masscan->output.rotate.directory,
              sizeof(masscan->output.rotate.directory),
              value);
-    /* strip trailing slashes */
+    /* 去掉尾部斜杠 */
     p = masscan->output.rotate.directory;
     while (*p && (p[strlen(p)-1] == '/' || p[strlen(p)-1] == '/'))
         p[strlen(p)-1] = '\0';
@@ -1455,8 +1442,7 @@ static int SET_rotate_directory(struct Masscan *masscan, const char *name, const
 static int SET_rotate_offset(struct Masscan *masscan, const char *name, const char *value)
 {
     UNUSEDPARM(name);
-    /* Time offset, otherwise output files are aligned to nearest time
-     * interval, e.g. at the start of the hour for "hourly" */
+    /* 分割输出的文件将接近时间偏移, e.g. 每小时输出 */
     if (masscan->echo) {
         if (masscan->output.rotate.offset || masscan->echo_all)
             fprintf(masscan->echo, "rotate-offset = %u\n", masscan->output.rotate.offset);
@@ -1494,7 +1480,7 @@ static int SET_script(struct Masscan *masscan, const char *name, const char *val
     if (masscan->scripting.name)
         free(masscan->scripting.name);
     
-    masscan->scripting.name = strdup(value);
+    masscan->scripting.name = strdup(value); // 脚本加载，也许可以看到Lua在Masscan中的具体使用方法。
     
     return CONF_OK;
 }
@@ -1623,8 +1609,7 @@ struct ConfigParameter config_parameters[] = {
 };
 
 /***************************************************************************
- * Called either from the "command-line" parser when it sees a --parm,
- * or from the "config-file" parser for normal options.
+ * 进行命令行参数或配置文件参数解析
  ***************************************************************************/
 void
 masscan_set_parameter(struct Masscan *masscan,
@@ -1638,7 +1623,7 @@ masscan_set_parameter(struct Masscan *masscan,
     
     /*
      * NEW:
-     * Go through configured list of parameters
+     * 遍历已配置的参数项
      */
     {
         size_t i;
@@ -1661,9 +1646,8 @@ masscan_set_parameter(struct Masscan *masscan,
 
     /*
      * OLD:
-     * Configure the old parameters, the ones we don't have in the new config
-     * system yet (see the NEW part above).
-     * TODO: transition all these old params to the new system
+     * 配置新的参数系统不存在的老的参数项
+     * TODO: 转换老配置项目到新的系统
      */
     if (EQUALS("conf", name) || EQUALS("config", name)) {
         masscan_read_config_file(masscan, value);
@@ -1682,12 +1666,12 @@ masscan_set_parameter(struct Masscan *masscan,
     else if (EQUALS("adapter-ip", name) || EQUALS("source-ip", name)
              || EQUALS("source-address", name) || EQUALS("spoof-ip", name)
              || EQUALS("spoof-address", name) || EQUALS("src-ip", name)) {
-        /* Send packets FROM this IP address */
+        /* 数据包发送源地址 */
         struct Range range;
 
         range = range_parse_ipv4(value, 0, 0);
 
-        /* Check for bad format */
+        /* IPv4格式检查 */
         if (range.begin > range.end) {
             LOG(0, "FAIL: bad source IPv4 address: %s=%s\n",
                     name, value);
@@ -1695,8 +1679,7 @@ masscan_set_parameter(struct Masscan *masscan,
             exit(1);
         }
 
-        /* If more than one IP address given, make the range is
-            * an even power of two (1, 2, 4, 8, 16, ...) */
+        /* 多个IP时，将其变为区间 */
         if (!is_power_of_two((uint64_t)range.end - range.begin + 1)) {
             LOG(0, "FAIL: range must be even power of two: %s=%s\n",
                     name, value);
@@ -1708,28 +1691,28 @@ masscan_set_parameter(struct Masscan *masscan,
         masscan->nic[index].src.ip.range = range.end - range.begin + 1;
     } else if (EQUALS("adapter-port", name) || EQUALS("source-port", name)
                || EQUALS("src-port", name)) {
-        /* Send packets FROM this port number */
+        /* 使用该端口号发包 */
         unsigned is_error = 0;
         struct RangeList ports = {0};
         memset(&ports, 0, sizeof(ports));
 
         rangelist_parse_ports(&ports, value, &is_error, 0);
 
-        /* Check if there was an error in parsing */
+        /* 检查是否存在解析异常 */
         if (is_error) {
             LOG(0, "FAIL: bad source port specification: %s\n",
                     name);
             exit(1);
         }
 
-        /* Only allow one range of ports */
+        /* 仅允许一个端口号范围 */
         if (ports.count != 1) {
             LOG(0, "FAIL: only one '%s' range may be specified, found %u ranges\n",
                     name, ports.count);
             exit(1);
         }
 
-        /* verify range is even power of 2 (1, 2, 4, 8, 16, ...) */
+        /* 验证范围是2的偶次幂 */
         if (!is_power_of_two(ports.list[0].end - ports.list[0].begin + 1)) {
             LOG(0, "FAIL: source port range must be even power of two: %s=%s\n",
                     name, value);
@@ -1741,7 +1724,7 @@ masscan_set_parameter(struct Masscan *masscan,
         masscan->nic[index].src.port.range = ports.list[0].end - ports.list[0].begin + 1;
     } else if (EQUALS("adapter-mac", name) || EQUALS("spoof-mac", name)
                || EQUALS("source-mac", name) || EQUALS("src-mac", name)) {
-        /* Send packets FROM this MAC address */
+        /* 使用该MAC地址发送数据包 */
         unsigned char mac[6];
 
         if (parse_mac_address(value, mac) != 0) {
@@ -1749,11 +1732,11 @@ masscan_set_parameter(struct Masscan *masscan,
             return;
         }
 
-        /* Check for duplicates */
+        /* 见擦汗重复项 */
         if (memcmp(masscan->nic[index].my_mac, mac, 6) == 0)
             return;
 
-        /* Warn if we are overwriting a Mac address */
+        /* 检查MAC地址变更 */
         if (masscan->nic[index].my_mac_count != 0) {
             LOG(0, "WARNING: overwriting MAC address\n");
         }
@@ -1774,12 +1757,12 @@ masscan_set_parameter(struct Masscan *masscan,
         memcpy(masscan->nic[index].router_mac, mac, 6);
     }
     else if (EQUALS("router-ip", name)) {
-        /* Send packets FROM this IP address */
+        /* 使用该IP发送（网关IP） */
         struct Range range;
 
         range = range_parse_ipv4(value, 0, 0);
 
-        /* Check for bad format */
+        /* IPv4地址检查 */
         if (range.begin != range.end) {
             LOG(0, "FAIL: bad source IPv4 address: %s=%s\n",
                     name, value);
@@ -1882,7 +1865,7 @@ masscan_set_parameter(struct Masscan *masscan,
             if (offset >= max_offset || ranges[offset] != ',')
                 break;
             else
-                offset++; /* skip comma */
+                offset++; /* 跳过标点符号 */
         }
         if (masscan->op == 0)
             masscan->op = Operation_Scan;
@@ -1912,7 +1895,7 @@ masscan_set_parameter(struct Masscan *masscan,
             if (offset >= max_offset || ranges[offset] != ',')
                 break;
             else
-                offset++; /* skip comma */
+                offset++; /* 跳过标点符号 */
         }
         if (masscan->op == 0)
             masscan->op = Operation_Scan;
@@ -1959,8 +1942,7 @@ masscan_set_parameter(struct Masscan *masscan,
             exit(1);
         }
 
-        /* Detect if this file has made any change, otherwise don't print
-         * a message */
+        /* 检查排除文件是否存在变动，打印变化信息 */
         count2 = masscan->exclude_ip.count;
         if (count2 - count1)
             fprintf(stderr, "%s: excluding %u ranges from file\n",
@@ -1994,12 +1976,12 @@ masscan_set_parameter(struct Masscan *masscan,
         unsigned value_length = (unsigned)strlen(value);
         unsigned char *newvalue;
 
-        /* allocate new value */
+        /* 分配新值 */
         newvalue = MALLOC(value_length+1);
         memcpy(newvalue, value, value_length+1);
         newvalue[value_length] = '\0';
 
-        /* allocate a new name */
+        /* 分配新名称 */
         name += 11;
         while (ispunct(*name))
             name++;
@@ -2068,8 +2050,7 @@ masscan_set_parameter(struct Masscan *masscan,
         print_nmap_help();
         exit(1);
     } else if (EQUALS("offline", name)) {
-        /* Run in "offline" mode where it thinks it's sending packets, but
-         * it's not */
+        /* 离线模式实际上不需要发送数据包 */
         masscan->is_offline = 1;
     } else if (EQUALS("osscan-limit", name)) {
         fprintf(stderr, "nmap(%s): OS scanning unsupported\n", name);
@@ -2238,8 +2219,7 @@ masscan_set_parameter(struct Masscan *masscan,
 }
 
 /***************************************************************************
- * Command-line parsing code assumes every --parm is followed by a value.
- * This is a list of the parameters that don't follow the default.
+ * 无选项值的参数配置选项
  ***************************************************************************/
 static int
 is_singleton(const char *name)
@@ -2374,8 +2354,7 @@ masscan_load_database_files(struct Masscan *masscan)
 }
 
 /***************************************************************************
- * Read the configuration from the command-line.
- * Called by 'main()' when starting up.
+ * 主函数调用下述方法，开始解析命令行参数
  ***************************************************************************/
 void
 masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
@@ -2384,7 +2363,7 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
 
     for (i=1; i<argc; i++) {
 
-        /*
+        /* // 一些命令行参数的格式
          * --name=value
          * --name:value
          * -- name value
@@ -2393,13 +2372,11 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
             if (strcmp(argv[i], "--help") == 0) {
                 masscan_help();
             } else if (EQUALS("top-ports", argv[i]+2)) {
-                /* special handling here since the following parameter
-                 * is optional */
+                /* 由于如下参数可选，因此特殊处理 */
                 const char *value = "1000";
                 unsigned n;
                 
-                /* Only consume the next parameter if it's a number,
-                 * otherwise default to 10000 */
+                /* 只有下一个参数为数字才启用，否则默认为10000 */
                 if (i+1 < argc && isInteger(argv[i+1])) {
                     value = argv[++i];
                 }
@@ -2408,15 +2385,13 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
                 masscan->top_ports = n;
                
             } else if (EQUALS("readscan", argv[i]+2)) {
-                /* Read in a binary file instead of scanning the network*/
+                /* 读取二进制文件而并非进行扫描 */
                 masscan->op = Operation_ReadScan;
                 
-                /* Default to reading banners */
+                /* 默认获取banners信息 */
                 masscan->is_banners = 1;
 
-                /* This option may be followed by many filenames, therefore,
-                 * skip forward in the argument list until the next
-                 * argument */
+                /* 这个选项后面可能有许多文件名，因此，跳过参数列表直到下一个参数 */
                 while (i+1 < argc && argv[i+1][0] != '-')
                     i++;
                 continue;
@@ -2458,7 +2433,7 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
             continue;
         }
 
-        /* For for a single-dash parameter */
+        /* 以‘-’开头的参数 */
         if (argv[i][0] == '-') {
             const char *arg;
 
@@ -2479,7 +2454,7 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
                     arg = argv[++i];
                 masscan_read_config_file(masscan, arg);
                 break;
-            case 'd': /* just do same as verbosity level */
+            case 'd': /* 类似-v的操作 */
                 {
                     int v;
                     for (v=1; argv[i][v] == 'd'; v++) {
@@ -2513,14 +2488,13 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
                 break;
             case 'i':
                 if (argv[i][3] == '\0' && !isdigit(argv[i][2]&0xFF)) {
-                    /* This looks like an nmap option*/
+                    /* 类似Nmap的参数配置 */
                     switch (argv[i][2]) {
                     case 'L':
                         masscan_set_parameter(masscan, "includefile", argv[++i]);
                         break;
                     case 'R':
-                        /* -iR in nmap makes it randomize addresses completely. Thus,
-                         * it's nearest equivalent is scanning the entire Internet range */
+                        /* -iR 在nmap中进行地址随机化. 因此以下默认值，扫描了全网 */
                         masscan_set_parameter(masscan, "include", "0.0.0.0/0");
                         break;
                     default:
@@ -2538,10 +2512,10 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
                 }
                 break;
             case 'n':
-                /* This looks like an nmap option*/
-                /* Do nothing: this code never does DNS lookups anyway */
+                /* nmap选项的适配 */
+                /* masscan不会进行DNS请求 */
                 break;
-            case 'o': /* nmap output format */
+            case 'o': /* nmap 输出格式 */
                 switch (argv[i][2]) {
                 case 'A':
                     masscan->output.format = Output_All;
@@ -2606,7 +2580,7 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
                     arg = argv[i]+2;
                 else
                     arg = argv[++i];
-                if (i >= argc || arg[0] == 0) { // if string is empty
+                if (i >= argc || arg[0] == 0) { // 如果字符串为空
                     fprintf(stderr, "%s: empty parameter\n", argv[i]);
                 } else
                     masscan_set_parameter(masscan, "ports", arg);
@@ -2614,7 +2588,7 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
             case 'P':
                 switch (argv[i][2]) {
                 case 'n':
-                    /* we already do this */
+                    /* 同上 */
                     break;
                 default:
                     fprintf(stderr, "nmap(%s): unsupported option, maybe in future\n", argv[i]);
@@ -2627,11 +2601,11 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
                 exit(1);
                 break;
             case 'R':
-                /* This looks like an nmap option*/
+                /* nmap选项适配 */
                 fprintf(stderr, "nmap(%s): unsupported. This code will never do DNS lookups.\n", argv[i]);
                 exit(1);
                 break;
-            case 's': /* NMAP: scan type */
+            case 's': /* NMAP: 扫描类型 */
                 if (argv[i][3] == '\0' && !isdigit(argv[i][2]&0xFF)) {
                     unsigned j;
 
@@ -2649,29 +2623,29 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
                     case 'I':
                         fprintf(stderr, "nmap(%s): Zombie scans will never be supported\n", argv[i]);
                         exit(1);
-                    case 'L': /* List Scan - simply list targets to scan */
+                    case 'L': /* 顺序扫描 */
                         masscan->op = Operation_ListScan;
                         break;
                     case 'M':
                         fprintf(stderr, "nmap(%s): Maimon scan not yet supported\n", argv[i]);
                         exit(1);
-                    case 'n': /* Ping Scan - disable port scan */
+                    case 'n': /* Ping 扫描 - 关闭端口扫描 */
                         fprintf(stderr, "nmap(%s): ping-sweeps not yet supported\n", argv[i]);
                         exit(1);
                     case 'N':
                         fprintf(stderr, "nmap(%s): NULL scan not yet supported\n", argv[i]);
                         exit(1);
-                    case 'O': /* Other IP protocols (not ICMP, UDP, TCP, or SCTP) */
+                    case 'O': /* 其他IP协议 (不是 ICMP, UDP, TCP, or SCTP) */
                         masscan->scan_type.oproto = 1;
                         break;
-                    case 'S': /* TCP SYN scan - THIS IS WHAT WE DO! */
+                    case 'S': /* TCP SYN 扫描 - MASSCAN主要执行的动作! */
                         masscan->scan_type.tcp = 1;
                         break;
-                    case 'T': /* TCP connect scan */
+                    case 'T': /* TCP 连接扫描 */
                         fprintf(stderr, "nmap(%s): connect() is too synchronous for cool kids\n", argv[i]);
                         fprintf(stderr, "WARNING: doing SYN scan (-sS) anyway, ignoring (-sT)\n");
                         break;
-                    case 'U': /* UDP scan */
+                    case 'U': /* UDP 扫描 */
                         masscan->scan_type.udp = 1;
                         break;
                     case 'V':
@@ -2712,7 +2686,7 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
                         LOG_add_level(1);
                 }
                 break;
-            case 'V': /* print version and exit */
+            case 'V': /* 显示版本并退出 */
                 masscan_set_parameter(masscan, "version", "");
                 break;
             case 'W':
@@ -2737,14 +2711,12 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
             exit(1);
         }
 
-        /* If parameter doesn't start with '-', assume it's an
-         * IPv4 range
-         */
+        /* 如果参数没有以 ‘-’ 开头，考虑该参数是IPv4地址范围 */
         masscan_set_parameter(masscan, "range", argv[i]);
     }
 
     /*
-     * Targets must be sorted
+     * 目标列表必须被排序
      */
     rangelist_sort(&masscan->targets);
     rangelist_sort(&masscan->ports);
@@ -2752,7 +2724,7 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
     rangelist_sort(&masscan->exclude_port);
 
     /*
-     * If no other "scan type" found, then default to TCP
+     * 如果没有其他扫描类型被发现，默认为TCP扫描
      */
     if (masscan->scan_type.udp == 0 && masscan->scan_type.sctp == 0
         && masscan->scan_type.ping == 0 && masscan->scan_type.arp == 0
@@ -2760,8 +2732,7 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
         masscan->scan_type.tcp = 1;
     
     /*
-     * If "top-ports" specified, then add all those ports. This may be in
-     * addition to any other ports
+     * 如果常见端口选项被使用，则添加端口到扫描目标端口列表内。
      */
     if (masscan->top_ports) {
         config_top_ports(masscan, masscan->top_ports);
@@ -2769,9 +2740,9 @@ masscan_command_line(struct Masscan *masscan, int argc, char *argv[])
 }
 
 /***************************************************************************
- * Prints the current configuration to the command-line then exits.
- * Use#1: create a template file of all setable parameters.
- * Use#2: make sure your configuration was interpreted correctly.
+ * 打印当前配置信息并退出
+ * Use#1: 对可配置项目创建模板文件.
+ * Use#2: 确认配置交互正常.
  ***************************************************************************/
 static void
 masscan_echo(struct Masscan *masscan, FILE *fp, unsigned is_echo_all)
@@ -2781,7 +2752,7 @@ masscan_echo(struct Masscan *masscan, FILE *fp, unsigned is_echo_all)
     
     /*
      * NEW:
-     * Print all configuration parameters
+     * 打印所有配置参数
      */
     masscan->echo = fp;
     masscan->echo_all = is_echo_all;
@@ -2793,8 +2764,8 @@ masscan_echo(struct Masscan *masscan, FILE *fp, unsigned is_echo_all)
     
     /*
      * OLD:
-     * Things here below are the old way of echoing parameters.
-     * TODO: cleanup this code, replacing with the new way.
+     * 此处为之前的配置参数打印方法。
+     * TODO: 整理该部分代码，使用新的配置项打印方式。
      */
     if (masscan->nic_count == 0)
         masscan_echo_nic(masscan, fp, 0);
@@ -2805,11 +2776,11 @@ masscan_echo(struct Masscan *masscan, FILE *fp, unsigned is_echo_all)
     
     
     /*
-     * Targets
+     * 目标配置
      */
     fprintf(fp, "# TARGET SELECTION (IP, PORTS, EXCLUDES)\n");
     fprintf(fp, "ports = ");
-    /* Disable comma generation for the first element */
+    /* 对第一个元素禁用逗号 */
     l = 0;
     for (i=0; i<masscan->ports.count; i++) {
         struct Range range = masscan->ports.list[i];
@@ -2901,7 +2872,7 @@ masscan_echo(struct Masscan *masscan, FILE *fp, unsigned is_echo_all)
 
 
 /***************************************************************************
- * remove leading/trailing whitespace
+ * 去除首尾空格
  ***************************************************************************/
 static void
 trim(char *line, size_t sizeof_line)

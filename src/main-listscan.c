@@ -52,9 +52,8 @@ infinite:
 
         if (count_ports == 1) {
             if (masscan->is_test_csv) {
-                /* [KLUDGE] [TEST]
-                 * For testing randomness output, prints last two bytes of
-                 * IP address as CSV format for import into spreadsheet
+                /* [手动] [测试用]
+                 * 为测试输出的随机性，输出IP地址最后两个字节，以CSV格式导入电子表格。
                  */
                 printf("%u,%u\n",
                        (ip>>8)&0xFF, (ip>>0)&0xFF
@@ -70,7 +69,7 @@ infinite:
                    port
                    );
 
-        i += increment; /* <------ increment by 1 normally, more with shards/nics */
+        i += increment; /* <------ 默认1增加，分片或多网卡场景时增量更大 */
     }
 
     if (masscan->is_infinite) {

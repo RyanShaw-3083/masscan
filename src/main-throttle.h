@@ -13,7 +13,7 @@ struct Throttler
     struct {
         uint64_t timestamp;
         uint64_t packet_count;
-    } buckets[256];
+    } buckets[256];  // 每个桶有个时间戳，快速找到对应时间下的包数量
 
     uint64_t test_timestamp;
     uint64_t test_packet_count;

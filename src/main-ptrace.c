@@ -5,7 +5,7 @@
 
 
 /***************************************************************************
- * Print packet info, when using nmap-style --packet-trace option
+ * 打印数据包跟踪信息，当使用类似nmap的选项 --packet-trace // 不是调试用的ptrace！
  ***************************************************************************/
 void
 packet_trace(FILE *fp, double pt_start, const unsigned char *px, size_t length, unsigned is_sent)
@@ -27,7 +27,7 @@ packet_trace(FILE *fp, double pt_start, const unsigned char *px, size_t length, 
     else
         direction = "RCVD";
 
-    /* parse the packet */
+    /* 解析数据包 */
     x = preprocess_frame(px, (unsigned)length, 1, &parsed);
     if (!x)
         return;
@@ -42,7 +42,7 @@ packet_trace(FILE *fp, double pt_start, const unsigned char *px, size_t length, 
         | parsed.ip_dst[2] << 8
         | parsed.ip_dst[3];
 
-    /* format the IP addresses into fixed-width fields */
+    /* 格式化IP到指定宽度的字段 */
     sprintf_s(from, sizeof(from), "%u.%u.%u.%u:%u",
               (src_ip>>24)&0xFF, (src_ip>>16)&0xFF,
               (src_ip>>8)&0xFF, (src_ip>>0)&0xFF,

@@ -4,15 +4,13 @@
 
 
 /***************************************************************************
- * Initialize the network adapter.
+ * 网络适配器初始化.
  *
- * This requires finding things like our IP address, MAC address, and router
- * MAC address. The user could configure these things manually instead.
+ * 这需要找到我们的IP地址，MAC地址和路由器
+ * MAC地址。用户可以手动配置这些东西。
  *
- * Note that we don't update the "static" configuration with the discovered
- * values, but instead return them as the "running" configuration. That's
- * so if we pause and resume a scan, auto discovered values don't get saved
- * in the configuration file.
+ * 注意，我们不更新“静态”配置与发现值，而是将它们作为“正在运行”配置返回。这是
+ * 因为，如果我们暂停并继续扫描，自动发现的值不会被保存在配置文件中。
  ***************************************************************************/
 int
 masscan_initialize_adapter(
@@ -32,16 +30,15 @@ masscan_initialize_adapter(
     LOG(1, "if: initializing adapter interface\n");
 
     /*
-     * ADAPTER/NETWORK-INTERFACE
+     * 适配器/网络接口
      *
-     * If no network interface was configured, we need to go hunt down
-     * the best Interface to use. We do this by choosing the first
-     * interface with a "default route" (aka. "gateway") defined
+     * 如果没有配置网络接口，我们需要进行搜索
+     * 使用最佳接口。以“预设路线”(即“网关”)定义的，我们选择第一个。
      */
     if (masscan->nic[index].ifname[0])
         ifname = masscan->nic[index].ifname;
     else {
-        /* no adapter specified, so find a default one */
+        /* 没有指定网卡，默认选择第一个 */
         int err;
         ifname2[0] = '\0';
         err = rawsock_get_default_interface(ifname2, sizeof(ifname2));
@@ -55,11 +52,11 @@ masscan_initialize_adapter(
     LOG(2, "if: interface=%s\n", ifname);
 
     /*
-     * IP ADDRESS
-     *
-     * We need to figure out that IP address to send packets from. This
-     * is done by querying the adapter (or configured by user). If the
-     * adapter doesn't have one, then the user must configure one.
+     * IP地址
+     * 
+     * 我们需要找出发送数据包的IP地址。
+     * 这通过查询适配器(或由用户配置)来完成。
+     * 如果适配器没有，那么用户必须配置一个。
      */
     adapter_ip = masscan->nic[index].src.ip.first;
     if (adapter_ip == 0) {
@@ -84,12 +81,10 @@ masscan_initialize_adapter(
         (adapter_ip>> 0)&0xFF
         );
 
-    /*
-     * MAC ADDRESS
+    /* MAC地址
      *
-     * This is the address we send packets from. It actually doesn't really
-     * matter what this address is, but to be a "responsible" citizen we
-     * try to use the hardware address in the network card.
+     * 这是我们发送数据包的地址。
+     * 实际上并不是这样无论这个地址是什么，但作为一个“靠谱”的人，我们尝试使用网卡中的硬件地址。
      */
     memcpy(adapter_mac, masscan->nic[index].my_mac, 6);
     if (masscan->nic[index].my_mac_count == 0) {
@@ -116,10 +111,9 @@ masscan_initialize_adapter(
 
 
     /*
-     * START ADAPTER
+     * 启动适配器
      *
-     * Once we've figured out which adapter to use, we now need to
-     * turn it on.
+     * 找到合适的适配器，随即启动它.
      */
     masscan->nic[index].adapter = rawsock_init_adapter(
                                             ifname,
@@ -138,16 +132,11 @@ masscan_initialize_adapter(
     
 
 
-    /*
-     * ROUTER MAC ADDRESS
-     *
-     * NOTE: this is one of the least understood aspects of the code. We must
-     * send packets to the local router, which means the MAC address (not
-     * IP address) of the router.
-     *
-     * Note: in order to ARP the router, we need to first enable the libpcap
-     * code above.
-     */
+    /* 路由器MAC地址
+     * 注意:这是代码中最不容易理解的方面之一。
+     * 我们必须发送数据包到本地路由器，这意味着MAC地址(不是路由器的IP地址)。
+     * 注意:为了ARP路由器，我们需要首先启用libpcap。
+     * */
     memcpy(router_mac, masscan->nic[index].router_mac, 6);
     if (masscan->is_offline) {
         memcpy(router_mac, "\x66\x55\x44\x33\x22\x11", 6);

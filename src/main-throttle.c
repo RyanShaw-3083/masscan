@@ -1,20 +1,18 @@
 /*
 
-    Rate-limit/throttler: stops us from transmiting too fast.
+    速率限制/节流器:阻止我们传输太快。
 
-    We can send packets at millions of packets/second. This will
-    melt most networks. Therefore, we need to throttle or rate-limit
-    how fast we go.
+    我们可以每秒发送数百万个数据包。这将大多数网络阻塞。因此，我们需要节流或限速当我们发送速率过快时。
 
-    Since we are sending packet at a rate of 10-million-per-second, we
-    the calculations need to be done in a light-weight manner. For one
-    thing, we can't do a system-call per packet.
+    由于我们以每秒1000万的速度发送数据包，所以我们计算需要以一种轻量级的方式进行。
+    也就是说我们无法为每一个包的限速操作进行系统调用。
 
-    NOTE: one complication to watch for is the difference between clock
-    time and elapsed time, and that they change. We have to avoid a problem
-    where somebody suspends the computer for a few days, then wake it up,
-    at which point the system tries sending a million packets/secon instead
-    of the desired thousand packets/second.
+    注意:要注意的一个复杂问题是时钟之间的差异时间和流逝的时间，它们是变化的。
+    
+    我们必须避免一个问题，例如：
+
+    有人把电脑挂了几天，然后把它唤醒，
+    此时，系统尝试发送100万个包/秒，并不是预期中的1000包/秒。
 */
 #include "main-throttle.h"
 #include "pixie-timer.h"
@@ -46,14 +44,12 @@ throttler_start(struct Throttler *throttler, double max_rate)
 
 
 /***************************************************************************
- * We return the number of packets that can be sent in a batch. Thus,
- * instead of trying to throttle each packet individually, which has a
- * high per-packet cost, we try to throttle a bunch at a time. Normally,
- * this function will return 1, only at high rates does it return larger
- * numbers.
- *
- * NOTE: The minimum value this returns is 1. When it's less than that,
- * it'll pause and wait until it's ready to send a packet.
+ * 返回下一批可发送数据包的数量. 因此，我们不是试图单独控制每个包，
+ * 因为每个包的成本很高，而是一次控制一堆包。
+ * 通常，这个函数会返回1，只有在高速率下才会返回较大的数
+ * 
+ * 注意: 最小的返回值为 1. 当返回值更小时，将暂停并等待系统可以继续发送数据包
+ * 
  ***************************************************************************/
 uint64_t
 throttler_next_batch(struct Throttler *throttler, uint64_t packet_count)
@@ -67,13 +63,11 @@ throttler_next_batch(struct Throttler *throttler, uint64_t packet_count)
 
 again:
 
-    /* NOTE: this uses CLOCK_MONOTONIC_RAW on Linux, so the timstamp doesn't
-     * move forward when the machine is suspended */
+    /* 注意: 该值通过获取Linux上的 CLOCK_MONOTONIC_RAW 变量, 当系统挂起时，时间戳不会变 */
     timestamp = pixie_gettime();
 
     /*
-     * We record that last 256 buckets, and average the rate over all of
-     * them.
+     * 记录最后的 256 桶（理想状态下）, 取平均值.
      */
     index = (throttler->index) & 0xFF;
     throttler->buckets[index].timestamp = timestamp;
@@ -84,73 +78,64 @@ again:
     old_packet_count = throttler->buckets[index].packet_count;
 
     /*
-     * If the delay is more than 1-second, then we should reset the system
-     * in order to avoid transmittting too fast.
+     * 两个数据包时间戳差值（延迟）超过1s时, 需要重置限流状态（batch_size）以降低速率.
      */
     if (timestamp - old_timestamp > 1000000) {
         //throttler_start(throttler, throttler->max_rate);
-        throttler->batch_size = 1;
-        goto again;
+        throttler->batch_size = 1;  // 重置，以最小速率运行
+        goto again;    // 为什么这样写255次循环？貌似因为并不是严格取256次。
     }
 
     /*
-     * Calculate the recent rate.
-     * NOTE: this isn't the rate "since start", but only the "recent" rate.
-     * That's so that if the system pauses for a while, we don't flood the
-     * network trying to catch up.
+     * 计算最近一次速率.
+     * NOTE: 这里不是自开始以来计算的速率, 仅是最近的速率.
+     * 因此系统挂起后，不会生成突发流量导致网络崩溃.
      */
     current_rate = 1.0*(packet_count - old_packet_count)/((timestamp - old_timestamp)/1000000.0);
 
 
     /*
-     * If we've been going too fast, then <pause> for a moment, then
-     * try again.
+     * 如果发送过快，将暂停并随后重试发送。
      */
     if (current_rate > max_rate) {
         double waittime;
 
-        /* calculate waittime, in seconds */
+        /* 根据发送速率，计算暂停时间 */
         waittime = (current_rate - max_rate) / throttler->max_rate;
 
-        /* At higher rates of speed, we don't actually need to wait the full
-         * interval. It's better to have a much smaller interval, so that
-         * we converge back on the true rate faster */
+        /* 过高速率出现时，不必完全等待整个暂停时间。
+         * 更小的时间间隔，将保证接近阀值的尽可能大的发送速率。
+         * */
         waittime *= 0.1;
 
-        /* This is in case of gross failure of the system. This should never
-         * actually happen, unless there is a bug. Really, I ought to make
-         * this an 'assert()' instead to fail and fix the bug rather than
-         * silently continueing, but I'm too lazy */
+        /* 这是在系统严重故障的情况下。这应该不会实际发生，除非有bug。
+         * 真的，我应该做一个'assert()'判断，而不是失败和修复错误，
+         * 强制调整时间间隔，而不是默默的继续，只是我太懒了 
+         * */
         if (waittime > 0.1)
             waittime = 0.1;
 
-        /* Since we've exceeded the speed limit, we should reduce the
-         * batch size slightly. We don't do it only by a little bit to
-         * avoid over-correcting. We want to converge on the correct
-         * speed gradually. Note that since this happens hundres or
-         * thousands of times a second, the convergence is very fast
-         * even with 0.1% adjustment */
+        /* 既然我们已经超速了，就应该减速调整每批发送数据包数量。
+         * 我们不会只做一点点,避免矫枉过正一样。我们想要向正确的方向逐渐收敛。
+         * 注意，由于这种情况每秒发生成白上千次，收敛速度非常快，即使是0.1%的调整 */
         throttler->batch_size *= 0.999;
 
-        /* Now we wait for a bit */
+        /* 暂停一小会儿（阻塞线程不到一秒） */
         pixie_usleep((uint64_t)(waittime * 1000000.0));
 
-        /* There are two choices here. We could either return immediately,
-         * or we can loop around again. Right now, the code loops around
-         * again in order to support very slow rates, such as 0.5 packets
-         * per second. Nobody would want to run a scanner that slowly of
-         * course, but it's great for testing */
+        /* 这里有两种选择。我们要么马上返回，或者我们可以再循环一次。
+         * 现在，代码循环更多次以支持非常慢的速率，如0.5包每秒。
+         * 没有人会想要运行这样慢的扫描,当然，但是这对测试很有用 
+         * */
         //return (uint64_t)throttler->batch_size;
-        goto again;
+        goto again;  // 限速需要持续执行，动态调整。
     }
 
     /*
-     * Calculate how many packets are needed to catch up again to the current
-     * rate, and return that.
+     * 计算符合预期发送速率的可发送数据包数.
      *
-     * NOTE: this is almost always going to have the value of 1 (one). Only at
-     * very high speeds (above 100,000 packets/second) will this value get
-     * larger.
+     * NOTE: 通常只返回 1 (one). 
+     * 高速状态时 (超过 100,000 packets/second) 将返回更大数值
      */
     throttler->batch_size *= 1.005;
     if (throttler->batch_size > 10000)
