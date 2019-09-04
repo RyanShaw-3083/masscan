@@ -3,12 +3,12 @@
 #include "masscan-status.h"
 #include "string_s.h"
 
-
+//-Q6-XML-输出文本文件格式-xml
 
 /****************************************************************************
  ****************************************************************************/
 static void
-xml_out_open(struct Output *out, FILE *fp)
+xml_out_open(struct Output *out, FILE *fp)  //-Q6-才看到FP是参数，这操作会不会阻塞线程？如果我硬盘卡死的话。
 {
     //const struct Masscan *masscan = out->masscan;
 
@@ -26,7 +26,7 @@ xml_out_open(struct Output *out, FILE *fp)
         );
     fprintf(fp, "<scaninfo type=\"%s\" protocol=\"%s\" />\r\n",
         "syn", "tcp" );
-}
+}//-Q6-XML-开始扫描之后，为输出xml格式的文件添加xml文件头。
 
 
 /****************************************************************************
@@ -58,7 +58,7 @@ xml_out_close(struct Output *out, FILE *fp)
             out->counts.tcp.open + out->counts.tcp.closed
             );
 
-}
+}//-Q6-XML-结束扫描时，对xml添加文件尾。
 
 /****************************************************************************
  ****************************************************************************/
@@ -88,7 +88,7 @@ xml_out_status(struct Output *out, FILE *fp, time_t timestamp, int status,
         reason_string(reason, reason_buffer, sizeof(reason_buffer)),
         ttl
         );
-}
+}//-Q6-XML-按既定格式，存储对应数据内容。
 
 /****************************************************************************
  ****************************************************************************/
@@ -130,7 +130,7 @@ xml_out_banner(struct Output *out, FILE *fp, time_t timestamp,
         masscan_app_to_string(proto),
         normalize_string(px, length, banner_buffer, sizeof(banner_buffer))
         );
-}
+}//-Q6-XML-存储Banner的模板行及内容读取过程
 
 /****************************************************************************
  ****************************************************************************/
@@ -141,5 +141,5 @@ const struct OutputType xml_output = {
     xml_out_close,
     xml_out_status,
     xml_out_banner
-};
+}; //-Q6-XML-注册输出插件（对应头文件定义）
 

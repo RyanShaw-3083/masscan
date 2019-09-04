@@ -27,6 +27,7 @@ struct Banner1
     struct SMACK *html_fields;
     struct SMACK *memcached_responses;
     struct SMACK *memcached_stats;
+    //-Q3-SM-由于不同协议在应用层上存在不同的状态交互模式，因此需要初始化多个SMACK结构
 
     unsigned is_capture_html:1;
     unsigned is_capture_cert:1;
@@ -38,7 +39,7 @@ struct Banner1
 
     struct {
         struct ProtocolParserStream *tcp[65536];
-    } payloads;
+    } payloads;  //-Q3-SM-Payloads包含待解析（抓取）banners
     
     BannerParser parser[PROTO_end_of_list];
 };
@@ -86,7 +87,7 @@ struct SSLRECORD {
 
     union {
         struct {
-            /* 所有机构体应该以状态进度变量为起始 */
+            /* 所有结构体应该以状态进度变量为起始 */
             unsigned state;
         } all;
         struct SSL_SERVER_HELLO server_hello;
@@ -119,8 +120,8 @@ struct VNCSTUFF {
     struct PIXEL_FORMAT pixel;    
 };
 
-struct FTPSTUFF {
-    unsigned code;
+struct FTPSTUFF {  
+    unsigned code; //-Q5-FTP-交互状态码
     unsigned is_last:1;
 };
 
@@ -228,8 +229,8 @@ struct RDPSTUFF {
     } cc;
 };
 
-struct ProtocolState {
-    unsigned state;
+struct ProtocolState { //-Q5-协议交互状态描述
+    unsigned state; //-Q4-HTTP-SM-Banner1_state()来自TCB定义（读取位置state）。
     unsigned remaining;
     unsigned short port;
     unsigned short app_proto;
@@ -245,7 +246,7 @@ struct ProtocolState {
         struct MEMCACHEDSTUFF memcached;
         struct SMBSTUFF smb;
         struct RDPSTUFF rdp;
-    } sub;
+    } sub; //-Q5-协议细节，交互状态标识
 };
 
 enum {
@@ -256,28 +257,28 @@ enum {
  * 各种TCP流协议的注册结构比如HTTP、SSL和SSH
  */
 struct ProtocolParserStream {
-    const char *name;
-    unsigned port;
-    const void *hello;
-    size_t hello_length;
-    unsigned ctrl_flags;
-    int (*selftest)(void);
-    void *(*init)(struct Banner1 *b);
-    void (*parse)(
-        const struct Banner1 *banner1,
-        void *banner1_private,
-        struct ProtocolState *stream_state,
-        const unsigned char *px, size_t length,
-        struct BannerOutput *banout,
-        struct InteractiveData *more);
-    void (*cleanup)(struct ProtocolState *stream_state);
-    void (*transmit_hello)(const struct Banner1 *banner1, struct InteractiveData *more);
+    const char *name;  //-Q5-协议名称
+    unsigned port;  //-Q5-端口
+    const void *hello;  //-Q5-交互数据包（Hello包）
+    size_t hello_length;  //-Q5-Hello数据长度
+    unsigned ctrl_flags;  //-Q5-控制位
+    int (*selftest)(void);  //-Q5-单元测试回调
+    void *(*init)(struct Banner1 *b);  //-Q5-Banner获取回调
+    void (*parse)(  //-Q5-协议解析
+        const struct Banner1 *banner1,  //-Q5-Banners  
+        void *banner1_private,  
+        struct ProtocolState *stream_state,  //-Q5-交互状态
+    const unsigned char *px, size_t length,  //-Q5-数据包及长度
+        struct BannerOutput *banout,    //-Q5-Banners输出回调
+        struct InteractiveData *more);  //-Q5-交互模式的更多数据
+    void (*cleanup)(struct ProtocolState *stream_state);  //-Q5-协议处理对象销毁
+    void (*transmit_hello)(const struct Banner1 *banner1, struct InteractiveData *more);  //-Q5-发送Hello交互
     
     /* 当为一个端口注册多个项时。当一个连接关闭时，将打开下一个连接。*/
     struct ProtocolParserStream *next;
     
     /*NOTE: “next”参数应该是这个结构中的最后一个参数，
-     *因为我们在编译时静态初始化其余成员，然后在运行时使用最后一个参数链接结构 */
+     *因为我们在编译时静态初始化其余成员，然后在运行时使用最后一个参数链接结构 *///-Q0-初始化Payload时 Ln 40 每个节点是顺序的。
 };
 
 

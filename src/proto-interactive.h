@@ -13,19 +13,19 @@ enum {
 };
 
 /**
- * Called to 'transmit' TCP packet payload.
+ * 处理发送线程TCP数据报
  */
 void
 tcp_transmit(struct InteractiveData *more, const void *data, size_t length, unsigned flags);
 
 /**
- * Called to close the connection
+ * TCP连接关闭处理
  */
 void
 tcp_close(struct InteractiveData *more);
 
 /**
- * Called to allocate a TCP buffer.
+ * 分配发送数据缓冲.
  */
 unsigned char *
 tcp_transmit_alloc(struct InteractiveData *more, size_t length);

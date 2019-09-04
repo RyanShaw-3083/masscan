@@ -198,22 +198,16 @@ http_init(struct Banner1 *b)
 }
 
 /***************************************************************************
- * BIZARRE CODE ALERT!
- *
- * This uses a "byte-by-byte state-machine" to parse the response HTTP
- * header. This is standard practice for high-performance network
- * devices, but is probably unfamiliar to the average network engineer.
- *
- * The way this works is that each byte of input causes a transition to
- * the next state. That means we can parse the response from a server
- * without having to buffer packets. The server can send the response
- * one byte at a time (one packet for each byte) or in one entire packet.
- * Either way, we don't. We don't need to buffer the entire response
- * header waiting for the final packet to arrive, but handle each packet
- * individually.
- *
- * This is especially useful with our custom TCP stack, which simply
- * rejects out-of-order packets.
+ * 奇怪代码警告! //-Q4-在流数据中逐字节匹配并结合自定义的应用层”状态机“进行Banners捕获。
+ * 使用“逐字节状态机”解析响应HTTP标题。这是针对高性能网络设备的实现，但对于一般的网络工程师来说可能是不熟悉的。
+ * 其工作方式是，输入的每个字节都导致转换到下一个状态。这意味着我们可以解析来自服务器的响应
+ * 无需缓冲数据包。服务器可以发送响应，每次一个字节(每个字节一个数据包)或整个数据包。无论哪种方式，我们都不会。
+ * 我们不需要缓冲整个响应等待最后一个数据包到达，但单独处理每个数据包。
+ * 
+ * 这对于我们的自定义TCP堆栈特别有用，它非常简单去拒绝无序的包。  
+ * //-Q4-感觉对于HTTP中HTML的截取和解析操作就很爆炸。
+ * //-Q4-虽然我知道如下是很精妙的过程，为何处理到<html之后不直接拷贝过去length-i长度?貌似那么做就会真的成为O(n^2)的流程。。。
+ * //-Q4-根据流数据来处理状态机，“逐字节状态机”确实更适合高速状态。
  ***************************************************************************/
 static void
 http_parse(
@@ -239,7 +233,7 @@ http_parse(
         CONTENT_TAG,
         CONTENT_FIELD,
         
-        DONE_PARSING
+        DONE_PARSING  //-Q4-HTTP头部第17个字节（索引开始是0）。正好对应到头的\n（结束符）位置。
     };
 
     UNUSEDPARM(banner1_private);
@@ -249,14 +243,14 @@ http_parse(
     id = (state>>8) & 0xFF;
     state = (state>>0) & 0xFF;
 
-    for (i=0; i<length; i++)
-    switch (state) {
-    case 0: case 1: case 2: case 3: case 4:
+    for (i=0; i<length; i++)  //-Q3-SM-对Payload进行逐字节解析
+    switch (state) { //-Q4-SM-假定这里是“HTTP/1.1 200 OK\r\n”，继续往下看就理解了这个State的作用
+    case 0: case 1: case 2: case 3: case 4: //-Q4-HTTP-“0000   48 54 54 50 2f 31 2e 31  HTTP/1.1”
         if (toupper(px[i]) != "HTTP/"[state]) {
             state = DONE_PARSING;
             tcp_close(more);
         } else
-            state++;
+            state++; //-Q4-HTTP-校验前5个字节，确认是HTTP回应报文。
         break;
     case 5:
         if (px[i] == '.')
@@ -273,18 +267,18 @@ http_parse(
             state = DONE_PARSING;
             tcp_close(more);
         }
-        break;
+        break; //-Q4-SM-HTTP-存在一些跳过的操作，对于HTTP版本，Banner抓取过程或HTTP交互中，是不关心的。
     case 7:
         /* TODO: look for 1xx response code */
         if (px[i] == '\n')
             state = FIELD_START;
         break;
-    case FIELD_START:
+    case FIELD_START:  //-Q4-HTTP-SM-HTTP状态码匹配
         if (px[i] == '\r')
             break;
         else if (px[i] == '\n') {
             state2 = 0;
-            state = CONTENT;
+            state = CONTENT;  //-Q4-HTTP-SM-直接跳到第14字节（idx=13）
             log_end = i;
             banout_append(banout, PROTO_HTTP, px+log_begin, log_end-log_begin);
             log_begin = log_end;
@@ -404,21 +398,23 @@ http_parse(
         break;
     }
 
-    if (log_end == 0 && state < CONTENT)
+    if (log_end == 0 && state < CONTENT)  
         log_end = i;
     if (log_begin < log_end)
-        banout_append(banout, PROTO_HTTP, px + log_begin, log_end-log_begin);
+        banout_append(banout, PROTO_HTTP, px + log_begin, log_end-log_begin); //-Q4-HTTP-输出截取Banner
 
 
-
+    //-Q4-HTTP-SM-第一次匹配到HTTP/之后，索引为6，匹配无结果，state=6,state2=0，id=0(未进行HTTP选项字段匹配，没有进入SMACK_HTTP读取匹配过程)
     if (state == DONE_PARSING)
         pstate->state = state;
     else
         pstate->state = (state2 & 0xFFFF) << 16
                 | ((unsigned)id & 0xFF) << 8
-                | (state & 0xFF);
+                | (state & 0xFF); //-Q4-SM-HTTP-虽然此时控制模板匹配的state（banner1_state）还是6,但是对数据包读取索引因即将的循环而+1,i=7
 }
 
+//-Q4-HTTP-Banner-最终结果示例。
+// banner="HTTP/1.1 200 OK\x0d\x0aServer: nginx\x0d\x0aDate: Thu, 15 Aug 2019 14:38:42 GMT\x0d\x0aContent-Type: text/html\x0d\x0aContent-Length: 6\x0d\x0aLast-Modified: Wed, 26 Jun 2019 23:54:03 GMT\x0d\x0aConnection: close\x0d\x0aETag: \x225d14059b-6\x22\x0d\x0aAccept-Ranges: bytes\x0d\x0a\x0d"
 
 /***************************************************************************
  ***************************************************************************/

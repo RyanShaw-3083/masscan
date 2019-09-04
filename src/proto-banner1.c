@@ -120,7 +120,7 @@ banner1_parse(
     unsigned proto;
 
 
-    switch (tcb_state->app_proto) {
+    switch (tcb_state->app_proto) {//-Q5-根据协议号匹配Banners解析函数。
     case PROTO_NONE:
     case PROTO_HEUR:
         x = smack_search_next(
@@ -135,7 +135,7 @@ banner1_parse(
             && !(proto == PROTO_SSL3 && !tcb_state->is_sent_sslhello)) {
             unsigned i;
 
-            /* re-read the stuff that we missed */
+            /* 重读我们错过的东西 */
             for (i=0; patterns[i].id && patterns[i].id != tcb_state->app_proto; i++)
                 ;
 
@@ -155,10 +155,10 @@ banner1_parse(
 
             tcb_state->app_proto = (unsigned short)proto;
 
-            /* reset the state back again */
+            /* 重置TCB状态 */
             tcb_state->state = 0;
 
-            /* If there is any data from a previous packet, re-parse that */
+            /* 如果有来自前一个数据包的任何数据，重新解析它 */
             {
                 const unsigned char *s = banout_string(banout, PROTO_HEUR);
                 unsigned s_len = banout_string_length(banout, PROTO_HEUR);
@@ -233,9 +233,9 @@ banner1_parse(
             
     case PROTO_SSH1:
     case PROTO_SSH2:
-        /* generic text-based parser
-         * TODO: in future, need to split these into separate protocols,
-         * especially when binary parsing is added to SSH */
+        /* 通用的基于文本的解析器
+         * TODO:之后，需要将这些分成单独的协议，
+         * 特别是将二进制解析添加到SSH时*/
         banner_ssh.parse(   banner1,
                             banner1->http_fields,
                             tcb_state,
@@ -303,11 +303,11 @@ banner1_parse(
                                    more);
         break;
 
-    default:
+    default: //-Q0-大概我就卡在了这，如果不去修改Masscan，一些新的协议无法正确获取Banners，banner_praser调用过程中涉及不同协议的状态交互。
         fprintf(stderr, "banner1: internal error\n");
         break;
 
-    }//-Q0-大概我就卡在了这，如果不去修改Masscan，一些新的协议无法正确获取Banners
+    }
 
     return tcb_state->app_proto;
 }
@@ -326,11 +326,11 @@ banner1_create(void)
     
 
     /*
-     * 这将创建一个模式匹配blob，用于启发式地确定在错误端口上运行的协议
+     * 这将创建一个状态及模式匹配blob，用于启发式地确定在错误端口上运行的协议
      * 比如FTP服务器通常用“220”响应或VNC服务器用“RFB”响应。
      */
     b->smack = smack_create("banner1", SMACK_CASE_INSENSITIVE);
-    for (i=0; patterns[i].pattern; i++)
+    for (i=0; patterns[i].pattern; i++)  //-Q3-SM-填充匹配模式表
         smack_add_pattern(
                     b->smack,
                     patterns[i].pattern,
@@ -338,7 +338,7 @@ banner1_create(void)
                     i,
                     patterns[i].is_anchored);
     smack_compile(b->smack);
-
+    //-Q3-SM-状态机其实不是协议定义好的状态机，而是自定义的。。。匹配采用Aho搜索算法。
     /*
      * [TODO] 应该将他们放到初始化函数内  //-Q0-banners构建也类似模板机制，应该同数据包模板一样，在main中初始化
      */
@@ -363,7 +363,8 @@ banner1_create(void)
     b->payloads.tcp[11211] = (void*)&banner_memcached;
     b->payloads.tcp[23] = (void*)&banner_telnet;
     b->payloads.tcp[3389] = (void*)&banner_rdp;
-    
+    //-Q0-此处TCP数组是ProcotolPraser结构数组，index对应TCP端口号，用以快速搜索服务。
+    //-Q3-指向对应的解析交互解析流程，各handler函数注册在对应的协议文件（如proto-tcp.c）内。
     /* 
      * 这将遍历所有TCP协议处理程序的列表并初始化。
      */
@@ -409,7 +410,7 @@ banner1_destroy(struct Banner1 *b)
 
 
 /***************************************************************************
- * Test the banner1 detection system by throwing random frames at it
+ * 随机数据包抓取用以测试banner获取及解析
  ***************************************************************************/
 void
 banner1_test(const char *filename)
@@ -437,7 +438,7 @@ banner1_test(const char *filename)
 
 
         packets_read = pcapfile_readframe(
-                    cap,    /* capture dump file */
+                    cap,    /* 抓包文件 */
                     &secs, &usecs,
                     &origlength, &length,
                     px, sizeof(px));
@@ -455,6 +456,7 @@ banner1_test(const char *filename)
 }
 
 /***************************************************************************
+ * 单元测试
  ***************************************************************************/
 int
 banner1_selftest()

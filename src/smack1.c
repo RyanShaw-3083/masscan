@@ -271,49 +271,46 @@ struct SmackMatches {
 };
 
 /****************************************************************************
- * This is the master structure for the SMACK engine.
+ * SMACK引擎主结构体
  ****************************************************************************/
 struct SMACK {
     /**
-     * Since a typical application may have multiple instances of this
-     * structure for different pattern sets, we allow the application to
-     * give a helpful name to this table
+     * 因为一个典型的应用程序可能有多个这样的结构不同的模式集实例
+     * 我们允许应用程序给这个表项起个有用的名字
      */
     char *              name;
 
     /**
-     * Whether or not this table is case-sensitive or case-insensitive
+     * 大小写是否敏感
      */
     unsigned            is_nocase:1;
 
     /**
-     * Whether one of the patterns contains an anchor (^) at the beginning
-     * of the pattern. If so, we need to add a symbol in our symbol table
-     * for the anchor.
+     * 其中一个模式是否在模式的开头包含锚(^)。
+     * 如果是这样，我们需要在符号表中为锚添加一个符号。
      */
     unsigned            is_anchor_begin:1;
 
 
     /**
-     * Whether one of the patterns contains an anchor ($) at the end
-     * of the pattern. If so, we need to add a symbol in our symbol table
-     * for the anchor.
+     * 其中一个模式是否在模式的结尾包含锚(^)。
+     * 如果是这样，我们需要在符号表中为锚添加一个符号。
      */
     unsigned            is_anchor_end:1;
 
 
     /**
-     * Temporary pattern list. Patterns are added here at the beginning.
-     * However, after the patterns have been compiled, this structure can
-     * be freed.
+     * 临时模式列表。模式在开始时添加到这里。
+     * 但是，在编译模式之后，这个结构可以被释放。
+     * 其中一个模式是否在模式的开头包含锚(^)。如果是这样，我们需要在符号表中为锚添加一个符号。
      */
     struct SmackPattern **m_pattern_list;
     unsigned            m_pattern_count;
     unsigned            m_pattern_max;
 
     /**
-     * Temporary place holder for DFA state transitions. After we
-     * compress the table, this is thrown away */
+     * DFA状态转换的临时变量。压缩完表格后，这个就被扔掉了 
+     * */
     struct SmackRow *  m_state_table;
     unsigned            m_state_count;
     unsigned            m_state_max;
@@ -322,43 +319,37 @@ struct SMACK {
 
 
     /**
-     * The opposite of "char_to_symbol", this table takes a symbol and
-     * converts it back to a  character. This can be useful in debugging,
-     * but it's real purpose is just during compilation in order to
-     * count the number of characters used in patterns, and consequently,
-     * how wide 'rows' need to be. */
+     * 与“char_to_symbol”相反，该表接受符号和
+     * 将其转换回字符。这对调试很有用，
+     * 但它的真正目的只是在编译期间为了
+     * 计算模式中使用的字符数，得到“行”需要多宽。 
+     * */
     unsigned            symbol_to_char[ALPHABET_SIZE];
 
     /**
-     * The "symbol compression dictionary". As we parse incoming bytes,
-     * they are first translated to a symbol. This is useful for two reasons.
-     * The first reason is that this allows us to create "case-insensitive"
-     * pattern-matches, where upper-case is converted to lower-case. The
-     * second reason is that it allows us to compress the table. If only
-     * 32 different characters are used in the patterns, then rows only
-     * have to be 32 symbols wide, instead of 256 characters wide.
+     * “符号压缩字典”。当我们解析传入的字节时，他们首先被翻译成一个符号。这样做有两个原因。
+     * 第一个原因是这允许我们创建“不区分大小写”
+     * 模式匹配，其中大写转换为小写。的
+     * 第二个原因是它允许我们压缩表。如果只有
+     * 模式中使用32个不同的字符，然后只使用行
+     * 必须是32个符号宽，而不是256个字符宽。
      */
     unsigned char       char_to_symbol[ALPHABET_SIZE];
 
     /**
-     * The number different characters used in all the patterns we are
-     * looking for. See "char_to_symbol" for more information.
+     * 非重复字符数量
      */
     unsigned            symbol_count;
 
     /**
-     * This is the row width, log2. Rows are expanded to the nearest
-     * power-of-2. Thus, if we have 26 different characters used in
-     * patterns, then we'll use row sizes of 32 elements. This allows
-     * use to optimize row lookups using the fast "shift" operation
-     * rather than the slow "multiplication" operation.
+     * 这是行宽，log2。行被展开到最近的行
+     * 2的幂。因此，如果我们有26个不同的字符
+     * 模式，然后我们将使用32个元素的行大小。这允许
+     * 使用快速“shift”操作优化行查找而不是缓慢的“乘法”运算。
      */
     unsigned            row_shift;
 
-    /**
-     * This is the final compressed table. It contains one row for each
-     * sub-pattern, and each row is wide enough to hold all the symbols
-     * (must be a power of two) */
+    /**这是最终压缩表。每一行包含一行子模式，每一行的宽度足够容纳所有符号(必须是2的幂)*/
     transition_t *       table;
 };
 
@@ -383,12 +374,12 @@ row_shift_from_symbol_count(unsigned symbol_count)
 
 
 /****************************************************************************
- * Creates this engine, use "smack_destroy()" to free all the resources
+ * 创建状态响应表，smack_destroy()销毁
  ****************************************************************************/
 struct SMACK *
 smack_create(const char *name, unsigned nocase)
 {
-    struct SMACK *smack;
+    struct SMACK *smack;  //-Q3-SM-所以重点在于这个SMACK引擎结构。。
 
     smack = (struct SMACK *)malloc(sizeof (struct SMACK));
     if (smack == NULL) {

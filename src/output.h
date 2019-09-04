@@ -14,12 +14,12 @@ enum ApplicationProtocol;
 enum PortStatus;
 
 /**
- * Output plugins
+ * Output 插件
  *
- * The various means for writing output are essentially plugins. As new methods
- * are created, we just fill in a structure of function pointers.
- * TODO: this needs to be a loadable DLL, but in the meantime, it's just
- * internal structures.
+ * 编写输出的各种方法本质上都是插件。随着新方法
+ * 创建后，我们只需填充函数指针的结构。
+ * TODO:这需要一个可加载的DLL，但与此同时，它只是
+ * 内部结构。
  */
 struct OutputType {
     const char *file_extension;
@@ -38,7 +38,7 @@ struct OutputType {
 };
 
 /**
- * Masscan creates one "output" structure per thread.
+ * Masscan为每个线程建立输出模块
  */
 struct Output
 {
@@ -50,20 +50,17 @@ struct Output
     unsigned format;
 
     /**
-     * The timestamp when this scan started. This is preserved in output files
-     * because that's what nmap does, and a lot of tools parse this.
+     * 扫描开始时的时间戳。这保存在输出文件中。因为这就是nmap所做的，很多工具都会解析它。
      */
     time_t when_scan_started;
 
     /**
-     * Whether we've started writing to a file yet. We are lazy writing the
-     * the file header until we've actually go something to write
+     * 是否已经开始写入文件。在真正开始编写之前，我们一直在延迟文件头的编写
      */
     unsigned is_virgin_file:1;
     
     /**
-     * used by json output to test if the first record has been seen, in order
-     * to determine if it needs a , comma before the record
+     * json输出使用它来测试是否看到了第一条记录，以便确定是否需要在记录前加上逗号
      */
     unsigned is_first_record_seen:1;
 
@@ -74,23 +71,23 @@ struct Output
         unsigned offset;
         uint64_t filesize;
         uint64_t bytes_written;
-        unsigned filecount; /* filesize rotates */
+        unsigned filecount; /* 分割文件大小 */
         char *directory;
     } rotate;
 
     unsigned is_banner:1;
     unsigned is_gmt:1; /* --gmt */
-    unsigned is_interactive:1; /* echo to command line */
-    unsigned is_show_open:1; /* show open ports (default) */
-    unsigned is_show_closed:1; /* show closed ports */
-    unsigned is_show_host:1; /* show host status info, like up/down */
-    unsigned is_append:1; /* append to file */
+    unsigned is_interactive:1; /* 直接输出命令行 */
+    unsigned is_show_open:1; /* 显示开放的目标端口 (default) */
+    unsigned is_show_closed:1; /* 显示关闭的目标端口 */
+    unsigned is_show_host:1; /* 显示主机状态，例如 up/down */
+    unsigned is_append:1; /* 追加模式 */
     struct {
         struct {
             uint64_t open;
             uint64_t closed;
             uint64_t banner;
-        } tcp;
+        } tcp;  //-Q6-所以如RawSocket是不会记录为可打印的二进制数据的
         struct {
             uint64_t open;
             uint64_t closed;
@@ -141,18 +138,17 @@ extern const struct OutputType binary_output;
 extern const struct OutputType null_output;
 extern const struct OutputType redis_output;
 extern const struct OutputType grepable_output;
-
+//-Q6-新输出插件要在此处需要声明，便于外部调用。
 /**
- * Creates an "output" object. This is called by the receive thread in order
- * to send "status" information (open/closed ports) and "banners" to either
- * the command-line or to files in specific formats, such as XML or Redis
+ * 创建一个“output”对象。这是由接收线程按顺序调用的
+ * 向任何一方发送“状态”信息(打开/关闭端口)和“Banners”
+ * 到命令行或特定格式的文件，如XML或Redis
  * @param masscan
- *      The master configuration.
+ *      主配置数据结构.
  * @param thread_index
- *      When there are more than one receive threads, they are differentiated
- *      by this index number.
+ *      一个以上接收线程以线程索引号区分
  * @return
- *      an output object that must eventually be destroyed by output_destroy().
+ *      最终必须由output_destroy()销毁的输出对象。
  */
 struct Output *
 output_create(const struct Masscan *masscan, unsigned thread_index);
@@ -179,7 +175,7 @@ void output_report_banner(
                 const unsigned char *px, unsigned length);
 
 /**
- * Regression tests this unit.
+ * 单元测试
  * @return
  *      0 on success, or positive integer on failure
  */

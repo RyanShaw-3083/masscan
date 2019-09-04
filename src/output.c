@@ -1,34 +1,31 @@
 /*
     output logging/reporting
-
-    This is the file that formats the output files -- that is to say,
-    where we report everything we find.
+    
+    脚本/版本控制在其后
+    这是格式化输出文件的文件——也就是说，我们报告是从这里生成的。
 
     PLUGINS
 
-    The various types of output (XML, binary, Redis, etc.) are written vaguely
-    as "plugins", which means as a structure with function pointers. In the
-    future, it should be possible to write plugins as DDLs/shared-objects
-    and load them at runtime, but right now, they are just hard coded.
+    各种类型的输出(XML、二进制、Redis等)都写得很模糊
+    作为“插件”，这意味着作为一个结构与函数指针。在
+    将来，应该可以将插件编写为DDLs/共享对象
+    并在运行时加载它们，但现在，它们只是硬编码。
 
     ROTATE
 
-    Files can be "rotated". This is done by prefixing the file with the
-    date/time when the file was created.
+    文件可以“分段”。这是通过在文件前面加上
+    创建文件的日期/时间。
 
-    A key feature of this design is to prevent files being lost during
-    rotation. Therefore, the files are renamed while they are still open.
-    If the rename function fails, then the file is left in-place and still
-    open for writing, with continued appending to the file.
+    该设计的一个关键特性是防止文件丢失其中一段。
+    因此，这些文件在仍然打开时将被重命名。
+    如果重命名函数失败，则文件将保留在原处
+    打开用于写入，并继续附加到文件中。
 
-    Thus, you could start the program logging to "--rotate-dir ../foobar"
-    and then notice the error messages saying that rotating isn't working,
-    then go create the "foobar" directory, at which point rotating will now
-    work -- it's just that the first rotated file will contain several
-    periods of data.
+    因此，您可以启动程序日志记录到“——rotate-dir ./foobar”
+    然后注意到错误信息说分段不起作用，然后创建“foobar”目录，此时分段功能正常——只是第一个分段的文件将包含几个区间段的数据。
 */
 
-/* Needed for Linux to make offsets 64 bits */
+/* Linux需要64位的偏移量 */
 #define _FILE_OFFSET_BITS 64
 
 #include "output.h"
@@ -62,8 +59,8 @@ static int64_t ftell_x(FILE *fp)
 }
 
 /*****************************************************************************
- * The 'status' variable contains both the open/closed info as well as the
- * protocol info. This splits it back out into two values.
+ * “status”变量包含打开/关闭信息和
+ * 协议信息。这将它拆分成两个值。
  *****************************************************************************/
 const char *
 name_from_ip_proto(unsigned ip_proto)
@@ -80,9 +77,8 @@ name_from_ip_proto(unsigned ip_proto)
 
 
 /*****************************************************************************
- * The actual 'status' variable is narrowly defined depending on the
- * underlying protocol. This function creates a gross "open" v. "closed"
- * string based on the narrow variable.
+ * 实际的“status”变量根据底层协议。这个函数创建一个粗略的“open” “关闭”
+ * 基于窄变量的字符串。
  *****************************************************************************/
 const char *
 status_string(enum PortStatus status)
@@ -97,7 +93,7 @@ status_string(enum PortStatus status)
 
 
 /*****************************************************************************
- * Convert TCP flags into an nmap-style "reason" string
+ * 将TCP标志转换为nmap样式的“reason”字符串
  *****************************************************************************/
 const char *
 reason_string(int x, char *buffer, size_t sizeof_buffer)
@@ -121,8 +117,8 @@ reason_string(int x, char *buffer, size_t sizeof_buffer)
 
 
 /*****************************************************************************
- * Remove bad characters from the banner, especially new lines and HTML
- * control codes.
+ * 从横幅中删除不好的字符，特别是新行和HTML
+ * 控制代码。
  *****************************************************************************/
 const char *
 normalize_string(const unsigned char *px, size_t length,
@@ -157,9 +153,9 @@ normalize_string(const unsigned char *px, size_t length,
 /*****************************************************************************
  * PORTABILITY: WINDOWS
  *
- * Windows POSIX functions open the file without the "share-delete" flag,
- * meaning they can't be renamed while open. Therefore, we need to
- * construct our own open flag.
+ * Windows POSIX函数在没有“share-delete”标志的情况下打开文件，
+ * 意味着它们不能在打开时重命名。因此，我们需要
+ * 建立我们自己的开放标志。
  *****************************************************************************/
 static FILE *
 open_rotate(struct Output *out, const char *filename)
@@ -195,13 +191,11 @@ open_rotate(struct Output *out, const char *filename)
         return (FILE*)fd;
     }
 
-    /* Do something special for the "-" filename */
+    /* 特殊处理带‘-’的文件名 */
     if (filename[0] == '-' && filename[1] == '\0')
         fp = stdout;
 
-    /* open a "shareable" file. On Windows, by default files can't be renamed
-     * while they are open, so we need a special function that takes care
-     * of this. */
+    /* 打开一个“共享”文件。在Windows上，默认情况下文件不能重命名。当它们打开时，我们需要一个特殊的函数来处理 */
     if (fp == 0) {
         x = pixie_fopen_shareable(&fp, filename, is_append);
         if (x != 0 || fp == NULL) {
@@ -214,8 +208,7 @@ open_rotate(struct Output *out, const char *filename)
     }
 
     /*
-     * Mark the file as newly opened. That way, before writing any data
-     * to it, we'll first have to write headers
+     * 将文件标记为新打开的。这样，在向它写入任何数据之前，我们首先必须编写文件头
      */
     out->is_virgin_file = 1;
 
@@ -224,9 +217,8 @@ open_rotate(struct Output *out, const char *filename)
 
 
 /*****************************************************************************
- * Write the remaining data the file and close it. This function is
- * called "rotate", but it doesn't actually rotate, this name just reflects
- * how it's used in the rotate process.
+ * 将剩余的数据写入文件并关闭它。这个函数是
+ * 名为“rotate”，但它实际上并不旋转，这个名称只是反映了如何在分割过程中使用.
  *****************************************************************************/
 static void
 close_rotate(struct Output *out, FILE *fp)
@@ -237,14 +229,14 @@ close_rotate(struct Output *out, FILE *fp)
         return;
 
     /*
-     * Write the format-specific trailers, like </xml>
+     * 写入格式定义的尾部 </xml>
      */
     if (!out->is_virgin_file)
         out->funcs->close(out, fp);
 
     memset(&out->counts, 0, sizeof(out->counts));
 
-    /* Redis Kludge*/
+    /* Redis 手工处理 */
     if (out->format == Output_Redis)
         return;
 
@@ -254,12 +246,9 @@ close_rotate(struct Output *out, FILE *fp)
 
 
 /*****************************************************************************
- * Returns the time when the next rotate should occur. Rotations are
- * aligned to the period, which means that if you rotate hourly, it's done
- * on the hour every hour, like at 9:00:00 o'clock exactly. In other words,
- * a period of "hourly" doesn't really mean "every 60 minutes", but
- * on the hour". Since the program will be launched midway in a period,
- * that means the first rotation will happen in less than a full period.
+ * 返回下一次分割发生的时间。分割是与周期对齐，这意味着
+ * 如果每小时旋转一次，就完成了每小时准时，比如9点整。换句话说,一段“每小时”并不意味着“每60分钟”，但是准一个小时”。
+ * 由于该项目将在一段时间内启动，这意味着第一次分割将在不到一个完整周期内发生。
  *****************************************************************************/
 static time_t
 next_rotate_time(time_t last_rotate, unsigned period, unsigned offset)
@@ -293,8 +282,7 @@ ends_with(const char *filename, const char *extension)
 #endif
 
 /*****************************************************************************
- * strdup(): compilers don't like strdup(), so I just write my own here. I
- * should probably find a better solution.
+ * strdup():编译器不喜欢strdup()，所以我在这里只编写自己的代码。我也许应该找到更好的解决方案。
  *****************************************************************************/
 static char *
 duplicate_string(const char *str)
@@ -302,18 +290,17 @@ duplicate_string(const char *str)
     size_t length;
     char *result;
 
-    /* Find the length of the string. We allow NULL strings, in which case
-     * the length is zero */
+    /* 找出字符串的长度。在这种情况下，我们允许空字符串长度为零 */
     if (str == NULL)
         length = 0;
     else
         length = strlen(str);
 
-    /* Allocate memory for the string */
+    /* 为字符串分配内存 */
     result = MALLOC(length + 1);
     
 
-    /* Copy the string */
+    /* 拷贝字符串 */
     if (str)
         memcpy(result, str, length+1);
     result[length] = '\0';
@@ -322,11 +309,11 @@ duplicate_string(const char *str)
 }
 
 /*****************************************************************************
- * Adds the index variable to just before the file extension. For example,
- * if the original filename is "foo.bar", and the index is 1, then the
- * new filename becomes "foo.01.bar". By putting the index before the
- * extension, it preserves the file type. By prepending a zero on the index,
- * it allows up to 100 files while still being able to easily sort the files.
+ * 在文件扩展名之前添加索引变量。例如,
+ * 如果原始文件名是“foo”。，下标为1，则
+ * 新文件名变成“foo.01.bar”。将索引放在
+ * 扩展名，它保留文件类型。通过在索引前加上一个0，
+ * 它允许多达100个文件，同时仍然能够轻松地排序文件。
  *****************************************************************************/
 static char *
 indexed_filename(const char *filename, unsigned index)
@@ -336,14 +323,14 @@ indexed_filename(const char *filename, unsigned index)
     char *new_filename;
     size_t new_length = strlen(filename) + 32;
 
-    /* find the extension */
+    /* 查找扩展名 */
     ext = len;
     while (ext) {
         ext--;
         if (filename[ext] == '.')
             break;
         if (filename[ext] == '/' || filename[ext] == '\\') {
-            /* no dot found, so ext is end of file */
+            /* 未找到，当前扩展名为文件名尾 */
             ext = len;
             break;
         }
@@ -351,11 +338,11 @@ indexed_filename(const char *filename, unsigned index)
     if (ext == 0 && len > 0 && filename[0] != '.')
         ext = len;
 
-    /* allocate memory */
+    /* 分配内存 */
     new_filename = MALLOC(new_length);
     
 
-    /* format the new name */
+    /* 格式化新文件名 */
     sprintf_s(new_filename, new_length, "%.*s.%02u%s",
               (unsigned)ext, filename,
               index,
@@ -366,9 +353,7 @@ indexed_filename(const char *filename, unsigned index)
 }
 
 /*****************************************************************************
- * Create an "output" structure. If we are writing a file, we create the
- * file now, so that any errors creating the file are caught immediately,
- * rather than later in the scan when it might fail.
+ * 创建一个“输出”结构。如果正在编写文件，则创建，以便立即捕获创建文件的任何错误，而不是等到扫描可能失败的时候.
  *****************************************************************************/
 struct Output *
 output_create(const struct Masscan *masscan, unsigned thread_index)
@@ -383,7 +368,7 @@ output_create(const struct Masscan *masscan, unsigned thread_index)
     out->is_virgin_file = 1;
 
     /*
-     * Copy the configuration information from the 'masscan' structure.
+     * 从“masscan”结构复制配置信息。
      */
     out->rotate.period = masscan->output.rotate.timeout;
     out->rotate.offset = masscan->output.rotate.offset;
@@ -409,8 +394,8 @@ output_create(const struct Masscan *masscan, unsigned thread_index)
     }
 
     /*
-     * Link the appropriate output module.
-     * TODO: support multiple output modules
+     * 连接适当的输出模块。
+     * TODO:支持多个输出模块
      */
     out->format = masscan->output.format;
     switch (out->format) {
@@ -450,9 +435,8 @@ output_create(const struct Masscan *masscan, unsigned thread_index)
     }
 
     /*
-     * Open the desired output file. We do this now at the start of the scan
-     * so that we can immediately notify the user of an error, rather than
-     * waiting midway through a long scan and have it fail.
+     * 打开所需的输出文件。我们现在在扫描开始时做这个。
+     * 因此，我们可以立即通知用户错误，而不是在长时间的扫描过程中等待，并让它失败。
      */
     if (masscan->output.filename[0] && out->funcs != &null_output) {
         FILE *fp;
@@ -468,12 +452,12 @@ output_create(const struct Masscan *masscan, unsigned thread_index)
     }
 
     /*
-     * Set the time of the next rotation. If we aren't rotating files, then
-     * this time will be set at "infinity" in the future.
-     * TODO: this code isn't Y2036 compliant.
+     * 设置下一次分割的时间。如果我们不分割文件，那么
+     * 这个时间将在未来被设置为“无穷大”。
+     * TODO:这段代码不兼容Y2036。
      */
     if (masscan->output.rotate.timeout == 0) {
-        /* TODO: how does one find the max time_t value??*/
+        /* TODO:如何找到max time_t值?*/
         out->rotate.next = (time_t)LONG_MAX;
     } else {
         if (out->rotate.offset > 1) {
@@ -494,9 +478,9 @@ output_create(const struct Masscan *masscan, unsigned thread_index)
 
 
 /*****************************************************************************
- * Rotate the file, moving it from the local directory to a remote directory
- * and changing the name to include the timestamp. This is done while the file
- * is still open: we move the file and rename it first, then close it.
+ * 分割文件，将其从本地目录移动到远程目录
+ * 并更改名称以包含时间戳。这是在处理文件时完成的
+ * 仍然打开:我们先移动文件并重命名它，然后关闭它。
  *****************************************************************************/
 static FILE *
 output_do_rotate(struct Output *out, int is_closing)
@@ -508,15 +492,14 @@ output_do_rotate(struct Output *out, int is_closing)
     struct tm tm;
     int err;
 
-    /* Don't do anything if there is no file */
+    /* 文件不存在直接跳过 */
     if (out == NULL || out->fp == NULL)
         return NULL;
 
-    /* Make sure that all output has been flushed to the file */
+    /* 确认缓冲写入文件 */
     fflush(out->fp);
 
-    /* Remove directory prefix from filename, we just want the root filename
-     * to start with */
+    /* 从文件名删除根路径前缀，只需要文件名 */
     while (strchr(filename, '/') || strchr(filename, '\\')) {
         filename = strchr(filename, '/');
         if (*filename == '/')
@@ -526,7 +509,7 @@ output_do_rotate(struct Output *out, int is_closing)
             filename++;
     }
 
-    /* Allocate memory for the new filename */
+    /* 为新文件名分配内存 */
     new_filename_size =     strlen(dir)
                             + strlen("/")
                             + strlen(filename)
@@ -536,7 +519,7 @@ output_do_rotate(struct Output *out, int is_closing)
                             + 1; /* nul */
     new_filename = MALLOC(new_filename_size);
 
-    /* Get the proper timestamp for the file */
+    /* 获取文件的适当时间戳 */
     if (out->is_gmt) {
         err = gmtime_s(&tm, &out->rotate.last);
     } else {
@@ -549,9 +532,7 @@ output_do_rotate(struct Output *out, int is_closing)
     }
 
 
-    /* Look for a name that doesn't collide with an exist name. If the desired
-     * file already exists, then increment the filename. This should never
-     * happen. */
+    /* 寻找一个与现有名称不冲突的名称。如果所需的文件已经存在，则增加文件名。这种事永远不应该发生。 */
     err = 0;
 again:
     if (out->rotate.filesize) {
@@ -601,8 +582,7 @@ again:
     }
 
     /*
-     * Set the next rotate time, which is the current time plus the period
-     * length
+     * 设置下一个分割时间，即当前时间加上周期长度
      */
     out->rotate.bytes_written = 0;
 
@@ -615,10 +595,10 @@ again:
     free(new_filename);
 
     /*
-     * Now create a new file
+     * 创建新文件
      */
     if (is_closing)
-        out->fp = NULL; /* program shutting down, so don't create new file */
+        out->fp = NULL; /* 程序正在退出，不创建新文件 */
     else {
         FILE *fp;
 
@@ -651,9 +631,8 @@ is_rotate_time(const struct Output *out, time_t now, FILE *fp)
 }
 
 /***************************************************************************
- * Return the vendor/OUI string matchng the first three bytes of a
- * MAC address.
- * TODO: this should be read in from a file
+ * 返回匹配MAC地址前三个字节的vendor/OUI字符串。
+ * TODO:这应该从文件中读取
  ***************************************************************************/
 static const char *
 oui_from_mac(const unsigned char mac[6])
@@ -696,9 +675,8 @@ oui_from_mac(const unsigned char mac[6])
 }
 
 /***************************************************************************
- * Report simply "open" or "closed", with little additional information.
- * This is called directly from the receive thread when responses come
- * back.
+ * 只报告“打开”或“关闭”，几乎没有其他信息。
+ * 当响应返回时，这将直接从receive线程调用。
  ***************************************************************************/
 void
 output_report_status(struct Output *out, time_t timestamp, int status,
@@ -710,15 +688,13 @@ output_report_status(struct Output *out, time_t timestamp, int status,
 
     global_now = now;
 
-    /* if "--open"/"--open-only" parameter specified on command-line, then
-     * don't report the status of closed-ports */
+    /* 如果定义 "--open"/"--open-only" 参数，则不报告关闭端口 */
     if (!out->is_show_closed && status == PortStatus_Closed)
         return;
     if (!out->is_show_open && status == PortStatus_Open)
         return;
 
-    /* If in "--interactive" mode, then print the banner to the command
-     * line screen */
+    /* 如果配置 "--interactive" 模式, 打印获取到的Banners信息 */
     if (out->is_interactive || out->format == 0 || out->format == Output_Interactive) {
         unsigned count;
 
@@ -748,8 +724,7 @@ output_report_status(struct Output *out, time_t timestamp, int status,
                         );
         }
 
-        /* Because this line may overwrite the "%done" status line, print
-         * some spaces afterward to completely cover up the line */
+        /* 因为这一行可能会覆盖“%done”状态行，所以在后面打印一些空格来完全覆盖这一行 */
         if (count < 80)
             fprintf(stdout, "%.*s", (int)(79-count),
                     "                                          "
@@ -764,11 +739,9 @@ output_report_status(struct Output *out, time_t timestamp, int status,
     if (fp == NULL)
         return;
 
-    /* Rotate, if we've pass the time limit. Rotating the log files happens
-     * inline while writing output, whenever there's output to write to the
-     * file, rather than in a separate thread right at the time interval.
-     * Thus, if results are coming in slowly, the rotation won't happen
-     * on precise boundaries */
+    /* 分割，如果超过了时间限制。
+     * 在写输出时，只要有输出要写到文件，就会内联地分割日志文件，而不是在时间间隔时在单独的线程中。
+     * 因此，如果结果来得很慢，分割就不会发生在精确的边界上 */
     if (is_rotate_time(out, now, fp)) {
         fp = output_do_rotate(out, 0);
         if (fp == NULL)
@@ -776,8 +749,7 @@ output_report_status(struct Output *out, time_t timestamp, int status,
     }
 
 
-    /* Keep some statistics so that the user can monitor how much stuff is
-     * being found. */
+    /* 保留一些统计数据，以便用户可以监视有多少内容被发现。 */
     switch (status) {
         case PortStatus_Open:
             switch (ip_proto) {
@@ -824,7 +796,7 @@ output_report_status(struct Output *out, time_t timestamp, int status,
     }
 
     /*
-     * If this is a newly opened file, then write file headers
+     * 新文件写入文件头内容
      */
     if (out->is_virgin_file) {
         out->funcs->open(out, fp);
@@ -832,8 +804,7 @@ output_report_status(struct Output *out, time_t timestamp, int status,
     }
 
     /*
-     * Now do the actual output, whether it be XML, binary, JSON, ndjson, Redis,
-     * and so on.
+     * 无论什么格式，开始实际输出
      */
     out->funcs->status(out, fp, timestamp, status, ip, ip_proto, port, reason, ttl);
 }
@@ -850,14 +821,11 @@ output_report_banner(struct Output *out, time_t now,
 {
     FILE *fp = out->fp;
 
-    /* If we aren't doing banners, then don't do anything. That's because
-     * when doing UDP scans, we'll still get banner information from
-     * decoding the response packets, even if the user isn't interested */
+    /* 如果我们不做横幅，那就什么都不要做。这是因为当做UDP扫描时，我们仍然会得到横幅信息解码响应包，即使用户不感兴趣 */
     if (!out->is_banner)
         return;
 
-    /* If in "--interactive" mode, then print the banner to the command
-     * line screen */
+    /* 如果配置 "--interactive" 模式, 打印获取到的Banners信息 */
     if (out->is_interactive || out->format == 0 || out->format == Output_Interactive) {
         unsigned count;
         char banner_buffer[4096];
@@ -873,8 +841,7 @@ output_report_banner(struct Output *out, time_t now,
             normalize_string(px, length, banner_buffer, sizeof(banner_buffer))
             );
 
-        /* Because this line may overwrite the "%done" status line, print
-         * some spaces afterward to completely cover up the line */
+        /* 打印空行防覆盖 */
         if (count < 80)
             fprintf(stdout, "%.*s", (int)(79-count),
                     "                                          "
@@ -883,15 +850,13 @@ output_report_banner(struct Output *out, time_t now,
         fprintf(stdout, "\n");
     }
 
-    /* If not outputing to a file, then don't do anything */
+    /* 文件不存在跳过 */
     if (fp == NULL)
         return;
 
-    /* Rotate, if we've pass the time limit. Rotating the log files happens
-     * inline while writing output, whenever there's output to write to the
-     * file, rather than in a separate thread right at the time interval.
-     * Thus, if results are coming in slowly, the rotation won't happen
-     * on precise boundaries */
+    /* 分割，如果超过了时间限制。
+     * 在写输出时，只要有输出要写到文件，就会内联地分割日志文件，而不是在时间间隔时在单独的线程中。
+     * 因此，如果结果来得很慢，分割就不会发生在精确的边界上 */
     if (is_rotate_time(out, now, fp)) {
         fp = output_do_rotate(out, 0);
         if (fp == NULL)
@@ -899,7 +864,7 @@ output_report_banner(struct Output *out, time_t now,
     }
 
     /*
-     * If this is a newly opened file, then write file headers
+     * 新文件写入文件头
      */
     if (out->is_virgin_file) {
         out->funcs->open(out, fp);
@@ -907,8 +872,7 @@ output_report_banner(struct Output *out, time_t now,
     }
 
     /*
-     * Now do the actual output, whether it be XML, binary, JSON, ndjson, Redis,
-     * and so on.
+     * 开始输出
      */
     out->funcs->banner(out, fp, now, ip, ip_proto, port, proto, ttl, px, length);
 
@@ -916,7 +880,7 @@ output_report_banner(struct Output *out, time_t now,
 
 
 /***************************************************************************
- * Called on exit of the program to close/free everything
+ * 每次退出或关闭时调用
  ***************************************************************************/
 void
 output_destroy(struct Output *out)
@@ -924,16 +888,13 @@ output_destroy(struct Output *out)
     if (out == NULL)
         return;
 
-    /* If rotating files, then do one last rotate of this file to the
-     * destination directory */
+    /* 分割文件，进行最后一次分割 */
     if (out->rotate.period || out->rotate.filesize) {
         LOG(1, "doing finale rotate\n");
         output_do_rotate(out, 1);
     }
 
-    /* If not rotating files, then simply close this file. Remember
-     * that some files will write closing information before closing
-     * the file */
+    /* 如果不分割文件，则只需关闭此文件。请记住，有些文件会在关闭文件之前编写关闭信息 */
     if (out->fp)
         close_rotate(out, out->fp);
 
@@ -948,7 +909,7 @@ output_destroy(struct Output *out)
 
 
 /*****************************************************************************
- * Regression tests for this unit.
+ * 输出模块单元测试
  *****************************************************************************/
 int
 output_selftest(void)

@@ -386,8 +386,7 @@ void scripting_init_tcp(struct TCP_ConnectionTable *tcpcon, struct lua_State *L)
 }
 
 /***************************************************************************
- * Called at startup, by a receive thread, to create a TCP connection
- * table.
+ * 接收线程中建立TCB
  ***************************************************************************/
 struct TCP_ConnectionTable *
 tcpcon_create_table(    size_t entry_count,
@@ -407,12 +406,11 @@ tcpcon_create_table(    size_t entry_count,
     tcpcon = CALLOC(1, sizeof(*tcpcon));
     tcpcon->timeout_connection = connection_timeout;
     if (tcpcon->timeout_connection == 0)
-        tcpcon->timeout_connection = 30; /* half a minute before destroying tcb */
+        tcpcon->timeout_connection = 30; /* TCB销毁超时-30s */
     tcpcon->timeout_hello = 2;
     tcpcon->entropy = entropy;
 
-    /* Find nearest power of 2 to the tcb count, but don't go
-     * over the number 16-million */
+    /* 找到最接近tcb计数的2次方，但不要去超过1600万 */
     {
         size_t new_entry_count;
         new_entry_count = 1;
@@ -423,15 +421,14 @@ tcpcon_create_table(    size_t entry_count,
                 break;
             }
         }
-        if (new_entry_count > (1<<24))
+        if (new_entry_count > (1<<24))  //-Q3-SM-缩减TCB计数<1600万
             new_entry_count = (1<<24);
         if (new_entry_count < (1<<10))
             new_entry_count = (1<<10);
         entry_count = new_entry_count;
     }
 
-    /* Create the table. If we can't allocate enough memory, then shrink
-     * the desired size of the table */
+    /* 创建表，内存不足时缩减表大小 */
     while (tcpcon->entries == 0) {
         tcpcon->entries = malloc(entry_count * sizeof(*tcpcon->entries));
         if (tcpcon->entries == NULL) {
@@ -441,11 +438,11 @@ tcpcon_create_table(    size_t entry_count,
     memset(tcpcon->entries, 0, entry_count * sizeof(*tcpcon->entries));
 
 
-    /* fill in the table structure */
+    /* TCB填充 */
     tcpcon->count = (unsigned)entry_count;
     tcpcon->mask = (unsigned)(entry_count-1);
 
-    /* create an event/timeouts structure */
+    /* 超时控制结构体 */
     tcpcon->timeouts = timeouts_create(TICKS_FROM_SECS(time(0)));
 
 
@@ -992,9 +989,7 @@ tcpcon_send_RST(
 
 
 /***************************************************************************
- * Parse the information we get from the server we are scanning. Typical
- * examples are SSH banners, FTP banners, or the response from HTTP
- * requests
+ * 解析服务器返回的Banners
  ***************************************************************************/
 static size_t
 parse_banner(

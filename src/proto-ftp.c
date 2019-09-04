@@ -7,18 +7,18 @@
 #include <ctype.h>
 #include <string.h>
 
-
+//-Q3-FTP-文本型stateful协议处理示例
 /***************************************************************************
  ***************************************************************************/
 static void
 ftp_parse(  const struct Banner1 *banner1,
           void *banner1_private,
-          struct ProtocolState *pstate,
+          struct ProtocolState *pstate,//-Q3-SM-这里是Banner1_state,源自于TCB中成员。proto-tcp.c ln 79
           const unsigned char *px, size_t length,
           struct BannerOutput *banout,
           struct InteractiveData *more)
 {
-    unsigned state = pstate->state;
+    unsigned state = pstate->state; //-Q3-FTP-当前TCP连接交互状态（码）
     unsigned i;
     struct FTPSTUFF *ftp = &pstate->sub.ftp;
     
@@ -28,8 +28,9 @@ ftp_parse(  const struct Banner1 *banner1,
     
     for (i=0; i<length; i++) {
         
-        switch (state) {
-            case 0:
+        switch (state) {//-Q3-FTP连接当前TCB状态(banner-state)
+            case 0: 
+            //-Q3-FTP-具体这个“状态码”怎么来的，跳转字符串'-Q3-SM-'（其实用SwitchCase实现了双重循环，一种逐字节解析的状态机处理模式。见-Q4-SM-）
             case 100:
                 ftp->code = 0;
                 state++;
