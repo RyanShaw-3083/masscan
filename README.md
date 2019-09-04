@@ -1,3 +1,15 @@
+[进行中] 添加一些中文注释及扫描器工作流程的学习记录。
+
+On branch `CN_Docs`。（第一次接触绕过内核发包的具体实现。。。欢迎指正）
+
+- Masscan主要流程
+- HTTP/FTP在”流式状态机“下的处理流程
+- ICMP探测启动流程
+
+原有代码注释已十分完善，只不过机翻了部分注释，方便看代码。
+
+---
+
 [![Build Status](https://travis-ci.org/robertdavidgraham/masscan.svg?branch=master)](https://travis-ci.org/robertdavidgraham/masscan.svg)
 
 # MASSCAN: Mass IP port scanner
